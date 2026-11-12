@@ -2,6 +2,7 @@ package local.archivero.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,7 +22,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import local.archivero.ArchiveroApp
 import local.archivero.core.Lister
+import local.archivero.data.Favorite
 import local.archivero.data.Settings
+import local.archivero.data.moveItem
 import java.nio.file.Paths
 
 /** Pantalla principal. Espera a tener los ajustes y arranca en la carpeta inicial. */
@@ -79,6 +82,25 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
             onToggleHidden = { update { it.copy(showHidden = !it.showHidden) } },
             onSetStart = { val here = path.toString(); update { it.copy(startPath = here) } },
         )
-        PaneView(pane, active = true, grid = settings.gridView, onOpenFile = {}, modifier = Modifier.weight(1f))
+        Row(Modifier.weight(1f)) {
+            Sidebar(
+                compact = false,
+                favorites = settings.favorites,
+                volumes = volumes,
+                currentPath = path,
+                onNavigate = { pane.navigate(it) },
+                onAddCurrent = {
+                    val here = path
+                    val label = if (here == volume?.root) volume.label else here.fileName?.toString() ?: here.toString()
+                    update { s ->
+                        if (s.favorites.any { it.path == here.toString() }) s
+                        else s.copy(favorites = s.favorites + Favorite(here.toString(), label))
+                    }
+                },
+                onRemove = { fav -> update { s -> s.copy(favorites = s.favorites - fav) } },
+                onMove = { from, to -> update { s -> s.copy(favorites = moveItem(s.favorites, from, to)) } },
+            )
+            PaneView(pane, active = true, grid = settings.gridView, onOpenFile = {}, modifier = Modifier.weight(1f))
+        }
     }
 }

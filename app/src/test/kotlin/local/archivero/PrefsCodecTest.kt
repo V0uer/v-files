@@ -2,6 +2,7 @@ package local.archivero
 
 import local.archivero.data.Favorite
 import local.archivero.data.PrefsCodec
+import local.archivero.data.moveItem
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
@@ -27,5 +28,14 @@ class PrefsCodecTest {
     @Test fun linea_corrupta_no_tira_las_buenas() {
         val raw = PrefsCodec.encodeFavorites(listOf(Favorite("/a", "A"))) + "\nbasura\n"
         assertEquals(listOf(Favorite("/a", "A")), PrefsCodec.decodeFavorites(raw))
+    }
+
+    @Test fun mover_favorito_reordena() {
+        val l = listOf("a", "b", "c")
+        assertEquals(listOf("b", "a", "c"), moveItem(l, 0, 1))
+        assertEquals(listOf("c", "a", "b"), moveItem(l, 2, 0))
+        assertEquals(l, moveItem(l, 1, 1))
+        assertEquals(l, moveItem(l, -1, 0))
+        assertEquals(l, moveItem(l, 0, 3))
     }
 }
