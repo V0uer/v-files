@@ -34,6 +34,7 @@ enum class Action(val label: String) {
     COPY("Copiar"),
     CUT("Cortar"),
     PASTE("Pegar"),
+    FAVORITE("Agregar a favoritos"),
     RENAME("Renombrar"),
     TRASH("Borrar"),
     DELETE("Borrar definitivo"),
@@ -74,7 +75,7 @@ class BrowserState(val left: PaneState, val right: PaneState, dual: Boolean = fa
         return buildList {
             if (dual) { add(Action.COPY_TO_OTHER); add(Action.MOVE_TO_OTHER) }
             add(Action.COPY); add(Action.CUT)
-            if (selectionCount == 1) add(Action.RENAME)
+            if (selectionCount == 1) { add(Action.FAVORITE); add(Action.RENAME) }
             add(Action.TRASH)
             add(Action.SHARE)
             if (selectionCount == 1) add(Action.OPEN_WITH)
@@ -120,7 +121,10 @@ fun ActionBar(
             Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            items(primary) { a -> ChipButton(if (a == Action.PASTE) "Pegar aquí" else a.label, { onAction(a) }) }
+            items(primary) { a ->
+                val label = when (a) { Action.PASTE -> "Pegar aquí"; Action.FAVORITE -> "★ Favorito"; else -> a.label }
+                ChipButton(label, { onAction(a) })
+            }
         }
         ChipButton("Más ⋮", onMore, Modifier.padding(start = 6.dp))
     }

@@ -48,6 +48,14 @@ class BrowserLogicTest {
         assertTrue(a.containsAll(listOf(Action.COPY, Action.CUT)))
     }
 
+    @Test fun favorito_solo_con_un_elemento_seleccionado() = runTest {
+        val b = browser()
+        assertTrue(Action.FAVORITE in b.actionsFor(1, dual = false))
+        assertTrue(Action.FAVORITE in b.actionsFor(1, dual = true))
+        assertFalse(Action.FAVORITE in b.actionsFor(2, dual = false))
+        assertFalse(Action.FAVORITE in b.actionsFor(0, dual = false))
+    }
+
     @Test fun toggleDual_conserva_la_ruta_del_panel_izquierdo() = runTest {
         val b = browser()
         runCurrent()

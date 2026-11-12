@@ -191,6 +191,15 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
                 }
                 browser.clipboard.value = null
             }
+            Action.FAVORITE -> picked.singleOrNull()?.let { folder ->
+                val target = folder.toString()
+                if (current.favorites.any { it.path == target }) say("Ya está en favoritos")
+                else {
+                    update { s -> s.copy(favorites = s.favorites + Favorite(target, folder.fileName?.toString() ?: target)) }
+                    say("Agregada a favoritos")
+                }
+                pane.clearSelection()
+            }
             Action.RENAME -> picked.singleOrNull()?.let { ask = Ask.Rename(it) }
             Action.TRASH -> if (picked.isNotEmpty()) { enqueue(OpRequest.ToTrash(picked)); pane.clearSelection() }
             Action.DELETE -> if (picked.isNotEmpty()) ask = Ask.Delete(picked)
@@ -242,11 +251,18 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
         onDispose { PadBus.handler = null }
     }
 
+    // El panel izquierdo va abierto con un panel y encogido con dos; se abre solo cuando el control
+    // entra en él, y el botón ☰ lo fuerza a un lado u otro.
+    var sidebarOverride by remember(dual) { mutableStateOf<Boolean?>(null) }
+    val sidebarOpen = sidebarFocused || (sidebarOverride ?: !dual)
+
     val volume = volumes.filter { path.startsWith(it.root) }.maxByOrNull { it.root.nameCount }
     val crumbs = remember(path, volume) {
         active.breadcrumbs(volume?.root ?: app.volumes.rootOf(path), volume?.label ?: "Interno")
     }
-    val actions = browser.actionsFor(selection.size, dual)
+    // "Favorito" solo se ofrece cuando lo seleccionado es una carpeta.
+    val folderPicked = remember(selection) { selection.singleOrNull()?.let { Files.isDirectory(it) } == true }
+    val actions = browser.actionsFor(selection.size, dual).filter { it != Action.FAVORITE || folderPicked }
 
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
@@ -279,19 +295,12 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
                     )
                     Row(Modifier.weight(1f)) {
                         Sidebar(
-                            compact = dual,
+                            compact = !sidebarOpen,
                             favorites = settings.favorites,
                             volumes = volumes,
                             currentPath = path,
-                            onNavigate = { active.navigate(it) },
-                            onAddCurrent = {
-                                val here = path
-                                val label = if (here == volume?.root) volume.label else here.fileName?.toString() ?: here.toString()
-                                update { s ->
-                                    if (s.favorites.any { it.path == here.toString() }) s
-                                    else s.copy(favorites = s.favorites + Favorite(here.toString(), label))
-                                }
-                            },
+                            onNavigate = { active.navigate(it); if (dual) sidebarOverride = null },
+                            onToggle = { sidebarOverride = !sidebarOpen },
                             onRemove = { fav -> update { s -> s.copy(favorites = s.favorites - fav) } },
                             onMove = { from, to -> update { s -> s.copy(favorites = moveItem(s.favorites, from, to)) } },
                             modifier = Modifier.onFocusChanged { sidebarFocused = it.hasFocus },
