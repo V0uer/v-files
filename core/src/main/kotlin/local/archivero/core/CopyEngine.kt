@@ -26,7 +26,7 @@ data class Progress(
 
 class OpFailure(val kind: Kind, val path: Path, cause: Throwable? = null) :
     Exception("$kind: $path", cause) {
-    enum class Kind { NO_SPACE, NO_ACCESS, SOURCE_GONE, INTO_ITSELF, FILE_TOO_LARGE, IO }
+    enum class Kind { NO_SPACE, NO_ACCESS, SOURCE_GONE, INTO_ITSELF, FILE_TOO_LARGE, ALREADY_EXISTS, IO }
 
     companion object {
         fun from(e: IOException, path: Path): OpFailure {
@@ -61,6 +61,8 @@ class CopyEngine(
     ) {
         var filesDone = 0
         var bytesDone = 0L
+        /** Archivos de origen copiados por completo desde el último corte. */
+        val copied = ArrayList<Path>()
         /** Por carpeta destino: nombre en minúsculas -> nombre real. */
         val names = HashMap<Path, HashMap<String, String>>()
         fun report(name: String) = onProgress(Progress(filesDone, filesTotal, bytesDone, bytesTotal, name))
@@ -79,6 +81,18 @@ class CopyEngine(
         destDir: Path,
         onConflict: suspend (existing: Path) -> ConflictChoice,
         onProgress: (Progress) -> Unit,
+    ): List<Path> = copyTracked(sources, destDir, onConflict, onProgress) { _, _ -> }
+
+    /**
+     * Igual que [copy], y tras terminar cada origen de primer nivel llama a [afterSource] con
+     * los archivos de ese origen que sí se copiaron (los omitidos no aparecen).
+     */
+    suspend fun copyTracked(
+        sources: List<Path>,
+        destDir: Path,
+        onConflict: suspend (existing: Path) -> ConflictChoice,
+        onProgress: (Progress) -> Unit,
+        afterSource: (source: Path, copiedFiles: List<Path>) -> Unit,
     ): List<Path> = withContext(Dispatchers.IO) {
         for (s in sources) {
             if (!Files.exists(s, LinkOption.NOFOLLOW_LINKS)) throw OpFailure(OpFailure.Kind.SOURCE_GONE, s)
@@ -98,7 +112,11 @@ class CopyEngine(
         }
         val run = Run(onConflict, onProgress, files, bytes)
         val made = ArrayList<Path>()
-        for (s in sources) copyOne(s, destDir, run)?.let { made.add(it) }
+        for (s in sources) {
+            run.copied.clear()
+            copyOne(s, destDir, run)?.let { made.add(it) }
+            afterSource(s, run.copied.toList())
+        }
         run.report("")
         made
     }
@@ -186,6 +204,7 @@ class CopyEngine(
                 throw OpFailure.from(e, target)
             }
             ok = true
+            run.copied.add(src)
             run.filesDone++
             run.report(name)
         } finally {
