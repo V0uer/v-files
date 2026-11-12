@@ -1,6 +1,11 @@
 package local.archivero.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -32,6 +37,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -45,6 +51,7 @@ import local.archivero.core.ListResult
 import local.archivero.core.Lister
 import local.archivero.core.OpFailure
 import local.archivero.core.OpRequest
+import local.archivero.core.OpStatus
 import local.archivero.data.Favorite
 import local.archivero.data.Settings
 import local.archivero.data.moveItem
@@ -95,6 +102,8 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
     val snackbar = remember { SnackbarHostState() }
     var ask by remember { mutableStateOf<Ask?>(null) }
     var menuOpen by remember { mutableStateOf(false) }
+    var showTrash by remember { mutableStateOf(false) }
+    val ops by app.queue.states.collectAsStateWithLifecycle()
     val say: (String) -> Unit = { text ->
         scope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(text) }
     }
@@ -117,7 +126,30 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
         browser.right.path.drop(1).collect { p -> app.prefs.update { it.copy(secondPanePath = p.toString()) } }
     }
     // Al terminar una operación, lo que se ve puede haber cambiado.
-    LaunchedEffect(browser) { app.queue.finished.collect { app.volumes.refresh(); refreshBoth() } }
+    // Las que terminan bien se quitan solas de la lista; las que fallan se quedan hasta que se cierren.
+    LaunchedEffect(browser) {
+        app.queue.finished.collect {
+            app.volumes.refresh(); refreshBoth()
+            if (app.queue.states.value.none { it.status == OpStatus.FAILED }) app.queue.clearFinished()
+        }
+    }
+    // Al abrir, se limpia de la papelera lo que ya cumplió su plazo.
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) { app.volumes.volumes.value.forEach { v -> runCatching { app.trash.purgeExpired(v.root) } } }
+    }
+
+    // El permiso de notificaciones se pide la primera vez que se encola algo; si se niega, la operación corre igual.
+    val askNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    var askedNotifications by remember { mutableStateOf(false) }
+    val enqueue: (OpRequest) -> Unit = { request ->
+        if (!askedNotifications && Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            askedNotifications = true
+            askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        app.enqueue(request)
+    }
 
     BackHandler(enabled = selection.isNotEmpty() || canBack) {
         if (active.selection.value.isNotEmpty()) active.clearSelection() else active.back()
@@ -133,25 +165,25 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
         val here = pane.path.value
         when (action) {
             Action.COPY_TO_OTHER -> if (picked.isNotEmpty()) {
-                app.enqueue(OpRequest.Copy(picked, browser.other.path.value)); pane.clearSelection()
+                enqueue(OpRequest.Copy(picked, browser.other.path.value)); pane.clearSelection()
             }
             Action.MOVE_TO_OTHER -> if (picked.isNotEmpty()) {
                 if (browser.other.path.value == here) say("Los dos paneles están en la misma carpeta")
-                else { app.enqueue(OpRequest.Move(picked, browser.other.path.value)); pane.clearSelection() }
+                else { enqueue(OpRequest.Move(picked, browser.other.path.value)); pane.clearSelection() }
             }
             Action.COPY, Action.CUT -> if (picked.isNotEmpty()) {
                 browser.clipboard.value = Clip(picked, cut = action == Action.CUT); pane.clearSelection()
             }
             Action.PASTE -> browser.clipboard.value?.let { c ->
                 when {
-                    !c.cut -> app.enqueue(OpRequest.Copy(c.paths, here))
+                    !c.cut -> enqueue(OpRequest.Copy(c.paths, here))
                     c.paths.all { it.parent == here } -> say("Ya están en esta carpeta")
-                    else -> app.enqueue(OpRequest.Move(c.paths, here))
+                    else -> enqueue(OpRequest.Move(c.paths, here))
                 }
                 browser.clipboard.value = null
             }
             Action.RENAME -> picked.singleOrNull()?.let { ask = Ask.Rename(it) }
-            Action.TRASH -> if (picked.isNotEmpty()) { app.enqueue(OpRequest.ToTrash(picked)); pane.clearSelection() }
+            Action.TRASH -> if (picked.isNotEmpty()) { enqueue(OpRequest.ToTrash(picked)); pane.clearSelection() }
             Action.DELETE -> if (picked.isNotEmpty()) ask = Ask.Delete(picked)
             Action.SHARE -> if (!Opener.share(context, picked)) say("No hay archivos que compartir; las carpetas no se comparten")
             Action.OPEN_WITH -> picked.singleOrNull()?.let { p ->
@@ -185,68 +217,83 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
     }
     val actions = browser.actionsFor(selection.size, dual)
 
-    Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize()) {
-            TopBar(
-                crumbs = crumbs,
-                canBack = canBack,
-                canUp = remember(path, volumes) { active.canGoUp() },
-                settings = settings,
-                dual = dual,
-                onBack = { active.back() },
-                onUp = { active.up() },
-                onCrumb = { active.navigate(it) },
-                onSort = { sort -> update { it.copy(sort = sort) } },
-                onToggleGrid = { update { it.copy(gridView = !it.gridView) } },
-                onToggleHidden = { update { it.copy(showHidden = !it.showHidden) } },
-                onSetStart = { val here = path.toString(); update { it.copy(startPath = here) }; say("Archivero abrirá aquí") },
-                onToggleDual = { browser.toggleDual() },
-                onNewFolder = { perform(Action.NEW_FOLDER) },
-                onSelectAll = { perform(Action.SELECT_ALL) },
-            )
-            Row(Modifier.weight(1f)) {
-                Sidebar(
-                    compact = dual,
-                    favorites = settings.favorites,
-                    volumes = volumes,
-                    currentPath = path,
-                    onNavigate = { active.navigate(it) },
-                    onAddCurrent = {
-                        val here = path
-                        val label = if (here == volume?.root) volume.label else here.fileName?.toString() ?: here.toString()
-                        update { s ->
-                            if (s.favorites.any { it.path == here.toString() }) s
-                            else s.copy(favorites = s.favorites + Favorite(here.toString(), label))
-                        }
-                    },
-                    onRemove = { fav -> update { s -> s.copy(favorites = s.favorites - fav) } },
-                    onMove = { from, to -> update { s -> s.copy(favorites = moveItem(s.favorites, from, to)) } },
-                )
-                PaneSlot(
-                    browser.left, active === browser.left, dual, settings.gridView,
-                    { browser.setActive(left = true) }, openFile, Modifier.weight(1f),
-                )
-                if (dual) {
-                    Box(Modifier.width(1.dp).fillMaxHeight().background(Tone.Line))
-                    PaneSlot(
-                        browser.right, active === browser.right, true, settings.gridView,
-                        { browser.setActive(left = false) }, openFile, Modifier.weight(1f),
+    Column(Modifier.fillMaxSize()) {
+        Box(Modifier.weight(1f)) {
+            if (showTrash) {
+                TrashScreen(app.trash, volumes, onClose = { showTrash = false }, onChanged = { refreshBoth() }, say = say)
+            } else {
+            Box(Modifier.fillMaxSize()) {
+                Column(Modifier.fillMaxSize()) {
+                    TopBar(
+                        crumbs = crumbs,
+                        canBack = canBack,
+                        canUp = remember(path, volumes) { active.canGoUp() },
+                        settings = settings,
+                        dual = dual,
+                        onBack = { active.back() },
+                        onUp = { active.up() },
+                        onCrumb = { active.navigate(it) },
+                        onSort = { sort -> update { it.copy(sort = sort) } },
+                        onToggleGrid = { update { it.copy(gridView = !it.gridView) } },
+                        onToggleHidden = { update { it.copy(showHidden = !it.showHidden) } },
+                        onSetStart = { val here = path.toString(); update { it.copy(startPath = here) }; say("Archivero abrirá aquí") },
+                        onToggleDual = { browser.toggleDual() },
+                onTrash = { showTrash = true },
+                        onNewFolder = { perform(Action.NEW_FOLDER) },
+                        onSelectAll = { perform(Action.SELECT_ALL) },
                     )
+                    Row(Modifier.weight(1f)) {
+                        Sidebar(
+                            compact = dual,
+                            favorites = settings.favorites,
+                            volumes = volumes,
+                            currentPath = path,
+                            onNavigate = { active.navigate(it) },
+                            onAddCurrent = {
+                                val here = path
+                                val label = if (here == volume?.root) volume.label else here.fileName?.toString() ?: here.toString()
+                                update { s ->
+                                    if (s.favorites.any { it.path == here.toString() }) s
+                                    else s.copy(favorites = s.favorites + Favorite(here.toString(), label))
+                                }
+                            },
+                            onRemove = { fav -> update { s -> s.copy(favorites = s.favorites - fav) } },
+                            onMove = { from, to -> update { s -> s.copy(favorites = moveItem(s.favorites, from, to)) } },
+                        )
+                        PaneSlot(
+                            browser.left, active === browser.left, dual, settings.gridView,
+                            { browser.setActive(left = true) }, openFile, Modifier.weight(1f),
+                        )
+                        if (dual) {
+                            Box(Modifier.width(1.dp).fillMaxHeight().background(Tone.Line))
+                            PaneSlot(
+                                browser.right, active === browser.right, true, settings.gridView,
+                                { browser.setActive(left = false) }, openFile, Modifier.weight(1f),
+                            )
+                        }
+                    }
+                    if (selection.isNotEmpty() || clip != null) {
+                        ActionBar(
+                            actions = actions, selectionCount = selection.size, clip = clip, dual = dual,
+                            onAction = perform,
+                            onClear = { if (selection.isNotEmpty()) active.clearSelection() else browser.clipboard.value = null },
+                            onMore = { menuOpen = true },
+                        )
+                    }
                 }
+                Box(Modifier.align(Alignment.BottomEnd)) {
+                    ActionsMenu(menuOpen, actions, clip != null, { menuOpen = false }, perform)
+                }
+                SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = 56.dp))
             }
-            if (selection.isNotEmpty() || clip != null) {
-                ActionBar(
-                    actions = actions, selectionCount = selection.size, clip = clip, dual = dual,
-                    onAction = perform,
-                    onClear = { if (selection.isNotEmpty()) active.clearSelection() else browser.clipboard.value = null },
-                    onMore = { menuOpen = true },
-                )
             }
         }
-        Box(Modifier.align(Alignment.BottomEnd)) {
-            ActionsMenu(menuOpen, actions, clip != null, { menuOpen = false }, perform)
-        }
-        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = 56.dp))
+        OpsPanel(
+            states = ops,
+            onCancel = { app.queue.cancel(it) },
+            onResolve = { id, choice, all -> app.queue.resolveConflict(id, choice, all) },
+            onDismissFailed = { app.queue.clearFinished() },
+        )
     }
 
     when (val a = ask) {
@@ -267,7 +314,7 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
                 " sin pasar por la papelera. No se puede deshacer.",
             "Borrar",
             onDismiss = { ask = null },
-            onConfirm = { ask = null; app.enqueue(OpRequest.Delete(a.targets)); browser.active.clearSelection() },
+            onConfirm = { ask = null; enqueue(OpRequest.Delete(a.targets)); browser.active.clearSelection() },
         )
         is Ask.Props -> PropertiesDialog(a.targets, app.fileOps) { ask = null }
     }

@@ -22,4 +22,8 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onStart() { super.onStart(); (application as ArchiveroApp).uiVisible = true }
+
+    override fun onStop() { (application as ArchiveroApp).uiVisible = false; super.onStop() }
 }

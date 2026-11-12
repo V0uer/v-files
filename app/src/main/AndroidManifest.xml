@@ -5,6 +5,11 @@
     <!-- Para que tocar un .apk abra el instalador del sistema. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- Las copias largas siguen aunque se salga de la app. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <queries>
         <intent>
             <action android:name="android.intent.action.VIEW" />
@@ -15,6 +20,7 @@
     <application
         android:name=".ArchiveroApp"
         android:label="Archivero"
+        android:icon="@mipmap/ic_launcher"
         android:theme="@style/Theme.Archivero"
         android:supportsRtl="true">
         <activity
@@ -26,6 +32,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service
+            android:name=".ops.OpsService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.files"
