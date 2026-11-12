@@ -103,6 +103,8 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
     var ask by remember { mutableStateOf<Ask?>(null) }
     var menuOpen by remember { mutableStateOf(false) }
     var showTrash by remember { mutableStateOf(false) }
+    /** Texto de la búsqueda en curso; null si no se está buscando. */
+    var search by remember { mutableStateOf<String?>(null) }
     val ops by app.queue.states.collectAsStateWithLifecycle()
     val say: (String) -> Unit = { text ->
         scope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(text) }
@@ -151,8 +153,12 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
         app.enqueue(request)
     }
 
-    BackHandler(enabled = selection.isNotEmpty() || canBack) {
-        if (active.selection.value.isNotEmpty()) active.clearSelection() else active.back()
+    BackHandler(enabled = selection.isNotEmpty() || search != null || canBack) {
+        when {
+            active.selection.value.isNotEmpty() -> active.clearSelection()
+            search != null -> search = null
+            else -> active.back()
+        }
     }
 
     val openFile: (FileEntry) -> Unit = { e ->
@@ -230,7 +236,7 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
                         canUp = remember(path, volumes) { active.canGoUp() },
                         settings = settings,
                         dual = dual,
-                        onBack = { active.back() },
+                        onBack = { if (search != null) search = null else active.back() },
                         onUp = { active.up() },
                         onCrumb = { active.navigate(it) },
                         onSort = { sort -> update { it.copy(sort = sort) } },
@@ -238,6 +244,10 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
                         onToggleHidden = { update { it.copy(showHidden = !it.showHidden) } },
                         onSetStart = { val here = path.toString(); update { it.copy(startPath = here) }; say("Archivero abrirá aquí") },
                         onToggleDual = { browser.toggleDual() },
+                        onSearch = { search = "" },
+                        searchField = search?.let { q ->
+                            { SearchField(q, { search = it }, "Buscar en ${path.fileName ?: volume?.label ?: path}") }
+                        },
                 onTrash = { showTrash = true },
                         onNewFolder = { perform(Action.NEW_FOLDER) },
                         onSelectAll = { perform(Action.SELECT_ALL) },
@@ -260,11 +270,27 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
                             onRemove = { fav -> update { s -> s.copy(favorites = s.favorites - fav) } },
                             onMove = { from, to -> update { s -> s.copy(favorites = moveItem(s.favorites, from, to)) } },
                         )
-                        PaneSlot(
+                        val query = search
+                        if (query != null) {
+                            SearchView(
+                                root = path, query = query, showHidden = settings.showHidden,
+                                onPick = { e ->
+                                    search = null
+                                    if (e.isDirectory) active.navigate(e.path)
+                                    else e.path.parent?.let { folder ->
+                                        // Va a su carpeta y lo deja seleccionado y a la vista.
+                                        active.clearSelection()
+                                        active.navigate(folder, highlight = e.path)
+                                        active.toggleSelect(e.path)
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                            )
+                        } else PaneSlot(
                             browser.left, active === browser.left, dual, settings.gridView,
                             { browser.setActive(left = true) }, openFile, Modifier.weight(1f),
                         )
-                        if (dual) {
+                        if (dual && query == null) {
                             Box(Modifier.width(1.dp).fillMaxHeight().background(Tone.Line))
                             PaneSlot(
                                 browser.right, active === browser.right, true, settings.gridView,
