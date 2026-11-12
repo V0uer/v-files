@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Toda la raíz: el interno y la tarjeta SD viven en /storage. El archivo solo se presta a la app que el usuario elija. -->
+<paths>
+    <root-path name="raiz" path="." />
+</paths>

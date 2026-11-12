@@ -6,6 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import local.archivero.core.CopyEngine
 import local.archivero.core.FileOps
+import local.archivero.core.OpRequest
 import local.archivero.core.OperationQueue
 import local.archivero.core.Trash
 import local.archivero.data.Prefs
@@ -28,4 +29,7 @@ class ArchiveroApp : Application() {
         trash = Trash({ volumes.rootOf(it) })
         queue = OperationQueue(appScope, copier, fileOps, trash)
     }
+
+    /** Única puerta para encolar operaciones desde la interfaz. */
+    fun enqueue(request: OpRequest): Long = queue.enqueue(request)
 }

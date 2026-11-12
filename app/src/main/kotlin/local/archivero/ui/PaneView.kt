@@ -52,6 +52,7 @@ import coil.request.ImageRequest
 import local.archivero.core.EntryKind
 import local.archivero.core.FileEntry
 import local.archivero.core.ListError
+import local.archivero.core.OpFailure
 import java.nio.file.Path
 import java.time.Instant
 import java.time.ZoneId
@@ -81,6 +82,16 @@ object Fmt {
         EntryKind.TEXT -> "📄"
         EntryKind.APK -> "📦"
         EntryKind.OTHER -> "▫"
+    }
+
+    fun failure(kind: OpFailure.Kind): String = when (kind) {
+        OpFailure.Kind.NO_SPACE -> "No hay espacio suficiente"
+        OpFailure.Kind.FILE_TOO_LARGE -> "El archivo es demasiado grande para este almacenamiento"
+        OpFailure.Kind.NO_ACCESS -> "Sin permiso para escribir aquí"
+        OpFailure.Kind.SOURCE_GONE -> "El archivo de origen ya no está"
+        OpFailure.Kind.INTO_ITSELF -> "No se puede copiar una carpeta dentro de sí misma"
+        OpFailure.Kind.ALREADY_EXISTS -> "Ya existe algo con ese nombre"
+        OpFailure.Kind.IO -> "Falló la lectura o la escritura"
     }
 
     fun listError(e: ListError): String = when (e) {

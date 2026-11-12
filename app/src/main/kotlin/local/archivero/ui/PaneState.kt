@@ -125,6 +125,13 @@ class PaneState(
         _selection.value = ready.entries.mapTo(HashSet()) { it.path }
     }
 
+    /** La selección en el orden en que se ve en la lista. */
+    fun selectedInOrder(): List<Path> {
+        val picked = _selection.value
+        val ready = _content.value as? PaneContent.Ready ?: return picked.toList()
+        return ready.entries.map { it.path }.filter { it in picked }
+    }
+
     fun clearSelection() { _selection.value = emptySet() }
 
     fun consumeHighlight() { _highlight.value = null }

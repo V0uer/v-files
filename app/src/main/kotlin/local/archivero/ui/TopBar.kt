@@ -84,6 +84,8 @@ fun TopBar(
     onSearch: (() -> Unit)? = null,
     onToggleDual: (() -> Unit)? = null,
     onTrash: (() -> Unit)? = null,
+    onNewFolder: (() -> Unit)? = null,
+    onSelectAll: (() -> Unit)? = null,
     searchField: (@Composable () -> Unit)? = null,
 ) {
     Row(
@@ -109,6 +111,9 @@ fun TopBar(
                         onClick = { open = false; action() },
                     )
                 }
+                if (onNewFolder != null) item("Nueva carpeta", false, onNewFolder)
+                if (onSelectAll != null) item("Seleccionar todo", false, onSelectAll)
+                if (onNewFolder != null || onSelectAll != null) HorizontalDivider(color = Tone.Line)
                 val sort = settings.sort
                 item("Por nombre", sort.key == SortKey.NAME) { onSort(sort.copy(key = SortKey.NAME)) }
                 item("Por fecha", sort.key == SortKey.DATE) { onSort(sort.copy(key = SortKey.DATE)) }
