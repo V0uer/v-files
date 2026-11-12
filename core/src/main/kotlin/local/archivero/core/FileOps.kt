@@ -68,9 +68,10 @@ class FileOps(
         }
         if (viaCopy.isNotEmpty()) {
             val ask: suspend (Path) -> ConflictChoice = { existing -> decided.remove(existing) ?: onConflict(existing) }
-            made += copier.copyTracked(viaCopy, destDir, ask, onProgress) { source, copied ->
-                for (f in copied) runCatching { Files.deleteIfExists(f) }
-                pruneEmptyDirs(source)
+            made += copier.copyTracked(viaCopy, destDir, ask, onProgress) { _, copied ->
+                // Postorden: al llegar a una carpeta ya se borró lo suyo que se copió; si aún
+                // tiene algo (lo omitido), el borrado falla y se queda.
+                for (p in copied) runCatching { Files.deleteIfExists(p) }
             }
         }
         made
@@ -79,18 +80,6 @@ class FileOps(
     private fun rawMove(from: Path, to: Path, replace: Boolean): Path = try {
         if (replace) Files.move(from, to, StandardCopyOption.REPLACE_EXISTING) else Files.move(from, to)
     } catch (e: IOException) { throw OpFailure.from(e, from) }
-
-    /** Borra las carpetas vacías de [root] hacia arriba (incluida [root]); deja las que aún tienen algo. */
-    private fun pruneEmptyDirs(root: Path) {
-        if (!Files.isDirectory(root, LinkOption.NOFOLLOW_LINKS)) return
-        val dirs = runCatching {
-            Files.walk(root).use { st -> st.filter { Files.isDirectory(it, LinkOption.NOFOLLOW_LINKS) }.toList() }
-        }.getOrDefault(emptyList())
-        for (d in dirs.sortedByDescending { it.nameCount }) {
-            val empty = runCatching { Files.newDirectoryStream(d).use { !it.iterator().hasNext() } }.getOrDefault(false)
-            if (empty) runCatching { Files.delete(d) }
-        }
-    }
 
     fun rename(target: Path, newName: String): Path {
         require(Names.isValid(newName)) { "nombre inválido" }

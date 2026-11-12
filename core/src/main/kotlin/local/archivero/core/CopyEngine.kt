@@ -61,7 +61,10 @@ class CopyEngine(
     ) {
         var filesDone = 0
         var bytesDone = 0L
-        /** Archivos de origen copiados por completo desde el último corte. */
+        /**
+         * Lo copiado por completo desde el último corte, en postorden: cada carpeta aparece
+         * después de su contenido, y solo si se recorrió (una carpeta omitida no aparece).
+         */
         val copied = ArrayList<Path>()
         /** Por carpeta destino: nombre en minúsculas -> nombre real. */
         val names = HashMap<Path, HashMap<String, String>>()
@@ -85,14 +88,15 @@ class CopyEngine(
 
     /**
      * Igual que [copy], y tras terminar cada origen de primer nivel llama a [afterSource] con
-     * los archivos de ese origen que sí se copiaron (los omitidos no aparecen).
+     * los archivos y carpetas de ese origen que sí se copiaron, en postorden (cada carpeta
+     * después de su contenido). Lo omitido no aparece.
      */
     suspend fun copyTracked(
         sources: List<Path>,
         destDir: Path,
         onConflict: suspend (existing: Path) -> ConflictChoice,
         onProgress: (Progress) -> Unit,
-        afterSource: (source: Path, copiedFiles: List<Path>) -> Unit,
+        afterSource: (source: Path, copied: List<Path>) -> Unit,
     ): List<Path> = withContext(Dispatchers.IO) {
         for (s in sources) {
             if (!Files.exists(s, LinkOption.NOFOLLOW_LINKS)) throw OpFailure(OpFailure.Kind.SOURCE_GONE, s)
@@ -155,6 +159,7 @@ class CopyEngine(
             } catch (e: IOException) { throw OpFailure.from(e, src) }
             for (c in children) copyOne(c, target, run)
             runCatching { Files.setLastModifiedTime(target, Files.getLastModifiedTime(src)) }
+            run.copied.add(src)
         } else {
             copyFile(src, target, replace, run)
             known[targetName.lowercase()] = targetName

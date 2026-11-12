@@ -19,7 +19,7 @@ class CopyEngineTest {
     private val dst get() = tmp.resolve("dst").also { Files.createDirectories(it) }
     private val never: suspend (Path) -> ConflictChoice = { fail("no debía haber conflicto") }
     private fun leftovers(d: Path) = Files.walk(d).use { s -> s.filter { it.fileName.toString().endsWith(".archivero-tmp") }.count() }
-    private fun names(d: Path) = Files.list(d).use { s -> s.map { it.fileName.toString() }.sorted().toList() }
+    private fun names(d: Path) = Files.list(d).use { s -> s.map { it.fileName.toString() }.sorted().collect(java.util.stream.Collectors.toList()) }
 
     @Test fun copia_archivo_conserva_contenido_y_fecha() = runBlocking {
         val f = Files.write(src.resolve("a.bin"), ByteArray(3_000_000) { (it % 251).toByte() })

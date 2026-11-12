@@ -102,7 +102,7 @@ class Trash(
     private fun deleteTree(root: Path) {
         if (!Files.exists(root, LinkOption.NOFOLLOW_LINKS)) return
         try {
-            val all = Files.walk(root).use { it.toList() }
+            val all = ArrayList<Path>().also { out -> Files.walk(root).use { st -> st.forEach { out.add(it) } } }
             for (p in all.sortedByDescending { it.nameCount }) Files.deleteIfExists(p)
         } catch (e: IOException) { throw OpFailure.from(e, root) }
     }

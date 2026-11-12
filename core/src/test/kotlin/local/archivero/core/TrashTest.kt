@@ -11,7 +11,7 @@ class TrashTest {
     private var clock = 1_700_000_000_000L
     private val day = 24L * 60 * 60 * 1000
     private fun trash() = Trash({ root }, { clock })
-    private fun names(d: Path) = Files.list(d).use { s -> s.map { it.fileName.toString() }.sorted().toList() }
+    private fun names(d: Path) = Files.list(d).use { s -> s.map { it.fileName.toString() }.sorted().collect(java.util.stream.Collectors.toList()) }
 
     @Test fun a_papelera_y_restaurar_devuelve_contenido_identico() {
         val dir = Files.createDirectories(root.resolve("docs").resolve("sub")).parent

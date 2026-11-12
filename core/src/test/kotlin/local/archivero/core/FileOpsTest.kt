@@ -15,7 +15,7 @@ class FileOpsTest {
     private val src get() = tmp.resolve("src").also { Files.createDirectories(it) }
     private val dst get() = tmp.resolve("dst").also { Files.createDirectories(it) }
     private val never: suspend (Path) -> ConflictChoice = { fail("no debía haber conflicto") }
-    private fun names(d: Path) = Files.list(d).use { s -> s.map { it.fileName.toString() }.sorted().toList() }
+    private fun names(d: Path) = Files.list(d).use { s -> s.map { it.fileName.toString() }.sorted().collect(java.util.stream.Collectors.toList()) }
     private fun same() = FileOps(CopyEngine()) { _, _ -> true }
     private fun cross() = FileOps(CopyEngine()) { _, _ -> false }
     private fun allTmp(d: Path) = Files.walk(d).use { s -> s.filter { it.fileName.toString().endsWith(".archivero-tmp") }.count() }
@@ -81,6 +81,32 @@ class FileOpsTest {
         assertEquals("nuevo", Files.readString(root.resolve("igual.txt")))
         assertEquals("viejo", Files.readString(dst.resolve("c").resolve("igual.txt")))
         assertEquals("x", Files.readString(dst.resolve("c").resolve("otro.txt")))
+    }
+
+    @Test fun mover_entre_volumenes_omitiendo_la_carpeta_no_toca_sus_carpetas_vacias() = runBlocking {
+        val root = Files.createDirectories(src.resolve("c").resolve("vacia")).parent
+        Files.write(root.resolve("a.txt"), "a".toByteArray())
+        Files.createDirectories(dst.resolve("c"))
+        cross().move(listOf(root), dst, { ConflictChoice.SKIP }) {}
+        assertTrue(Files.isDirectory(root.resolve("vacia")))
+        assertEquals(listOf("a.txt", "vacia"), names(root))
+    }
+
+    @Test fun mover_entre_volumenes_con_subcarpeta_omitida_conserva_sus_carpetas_vacias() = runBlocking {
+        val sub = Files.createDirectories(src.resolve("c").resolve("sub").resolve("vacia")).parent
+        Files.write(sub.resolve("x.txt"), "x".toByteArray())
+        Files.createDirectories(dst.resolve("c").resolve("sub"))
+        cross().move(listOf(src.resolve("c")), dst, { if (it.fileName.toString() == "c") ConflictChoice.REPLACE else ConflictChoice.SKIP }) {}
+        assertTrue(Files.isDirectory(sub.resolve("vacia")))
+        assertEquals("x", Files.readString(sub.resolve("x.txt")))
+    }
+
+    @Test fun mover_entre_volumenes_no_deja_carpetas_vacias_en_el_origen() = runBlocking {
+        val root = Files.createDirectories(src.resolve("c").resolve("vacia").resolve("mas")).parent.parent
+        Files.write(root.resolve("a.txt"), "a".toByteArray())
+        cross().move(listOf(root), dst, never) {}
+        assertFalse(Files.exists(root))
+        assertTrue(Files.isDirectory(dst.resolve("c").resolve("vacia").resolve("mas")))
     }
 
     @Test fun mover_mismo_volumen_fusionando_carpeta_conserva_lo_omitido() = runBlocking {
