@@ -22,6 +22,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,6 +32,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -217,6 +220,28 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
         }
     }
 
+    // Control físico: X selecciona lo enfocado, Y abre el menú, L1/R1 cambian de panel,
+    // Start alterna los dos paneles y Select lleva el foco a favoritos.
+    val sidebarFocus = remember { FocusRequester() }
+    var sidebarFocused by remember { mutableStateOf(false) }
+    DisposableEffect(browser) {
+        PadBus.handler = handler@{ command ->
+            if (showTrash || ask != null) return@handler false
+            when (command) {
+                PadCommand.OPEN, PadCommand.BACK -> false
+                PadCommand.SELECT ->
+                    if (sidebarFocused || search != null) false
+                    else { browser.active.focused?.let { browser.active.toggleSelect(it) }; true }
+                PadCommand.MENU -> if (sidebarFocused) false else { menuOpen = true; true }
+                PadCommand.PREV_PANE -> { browser.setActive(left = true); browser.active.requestFocus(); true }
+                PadCommand.NEXT_PANE -> { browser.setActive(left = false); browser.active.requestFocus(); true }
+                PadCommand.TOGGLE_DUAL -> { browser.toggleDual(); browser.active.requestFocus(); true }
+                PadCommand.FAVORITES -> { runCatching { sidebarFocus.requestFocus() }; true }
+            }
+        }
+        onDispose { PadBus.handler = null }
+    }
+
     val volume = volumes.filter { path.startsWith(it.root) }.maxByOrNull { it.root.nameCount }
     val crumbs = remember(path, volume) {
         active.breadcrumbs(volume?.root ?: app.volumes.rootOf(path), volume?.label ?: "Interno")
@@ -269,6 +294,8 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
                             },
                             onRemove = { fav -> update { s -> s.copy(favorites = s.favorites - fav) } },
                             onMove = { from, to -> update { s -> s.copy(favorites = moveItem(s.favorites, from, to)) } },
+                            modifier = Modifier.onFocusChanged { sidebarFocused = it.hasFocus },
+                            firstItemFocus = sidebarFocus,
                         )
                         val query = search
                         if (query != null) {
