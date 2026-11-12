@@ -80,9 +80,9 @@ object Fmt {
         EntryKind.VIDEO -> "🎬"
         EntryKind.AUDIO -> "🎵"
         EntryKind.ARCHIVE -> "🗜"
-        EntryKind.TEXT -> "📄"
+        EntryKind.TEXT -> "📝"
         EntryKind.APK -> "📦"
-        EntryKind.OTHER -> "▫"
+        EntryKind.OTHER -> "📄"
     }
 
     fun failure(kind: OpFailure.Kind): String = when (kind) {

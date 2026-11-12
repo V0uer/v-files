@@ -107,16 +107,15 @@ fun ActionBar(
         GlyphButton("✕", if (selectionCount > 0) "Quitar selección" else "Vaciar portapapeles", onClear)
         Text(
             when {
-                selectionCount == 1 -> "1 seleccionado"
-                selectionCount > 1 -> "$selectionCount seleccionados"
+                selectionCount > 0 -> "$selectionCount"
                 clip != null -> (if (clip.cut) "Para mover: " else "Para copiar: ") + clip.paths.size
                 else -> ""
             },
-            fontSize = 13.sp, color = Tone.Muted, maxLines = 1, modifier = Modifier.padding(end = 8.dp),
+            fontSize = 15.sp, color = Tone.Text, maxLines = 1, modifier = Modifier.padding(end = 8.dp),
         )
         val primary = actions.filter { a ->
             a !in Secondary && !(dual && (a == Action.COPY || a == Action.CUT)) && !(a == Action.PASTE && clip == null)
-        }
+        }.sortedBy { if (it == Action.FAVORITE) 0 else 1 }
         LazyRow(
             Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
