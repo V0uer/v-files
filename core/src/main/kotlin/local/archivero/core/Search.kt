@@ -41,7 +41,7 @@ object Search {
                         if (fold(name).contains(needle)) Lister.entryOf(p)?.let { batch.add(it) }
                     }
                 }
-            } catch (e: IOException) { continue } catch (e: SecurityException) { continue }
+            } catch (e: IOException) { continue } catch (e: java.nio.file.DirectoryIteratorException) { continue } catch (e: SecurityException) { continue }
             for (e in batch) emit(e)
         }
     }.flowOn(Dispatchers.IO)

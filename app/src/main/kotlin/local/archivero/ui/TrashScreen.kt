@@ -54,6 +54,7 @@ fun TrashScreen(
     var reload by remember { mutableIntStateOf(0) }
     var busy by remember { mutableStateOf(false) }
     var confirmEmpty by remember { mutableStateOf(false) }
+    var confirmPurge by remember { mutableStateOf<Trashed?>(null) }
     val closeFocus = remember { FocusRequester() }
 
     LaunchedEffect(reload, volumes) {
@@ -114,11 +115,23 @@ fun TrashScreen(
                             )
                         }
                         ChipButton("Restaurar", { act { trash.restore(t.item, t.volume.root) } }, Modifier.padding(horizontal = 4.dp), enabled = !busy)
-                        ChipButton("Borrar", { act { trash.purge(t.item, t.volume.root) } }, enabled = !busy)
+                        ChipButton("Borrar", { confirmPurge = t }, enabled = !busy)
                     }
                 }
             }
         }
+    }
+
+    confirmPurge?.let { t ->
+        ConfirmDialog(
+            "Borrar para siempre",
+            "\"${t.item.originalPath.fileName ?: ""}\" se borrará para siempre. No se puede deshacer.", "Borrar",
+            onDismiss = { confirmPurge = null },
+            onConfirm = {
+                confirmPurge = null
+                act { trash.purge(t.item, t.volume.root) }
+            },
+        )
     }
 
     if (confirmEmpty) {

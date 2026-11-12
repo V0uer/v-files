@@ -140,7 +140,8 @@ class FileOps(
                         else { files++; bytes += runCatching { Files.size(p) }.getOrDefault(0L) }
                     }
                 }
-            } catch (e: IOException) { /* carpeta ilegible: se cuenta lo que se pueda */ }
+            } catch (e: IOException) { /* carpeta ilegible: se cuenta lo que se pueda */
+            } catch (e: java.nio.file.DirectoryIteratorException) { /* igual, si falla a media lista */ }
         }
         Properties(target, bytes, files, folders, runCatching { Files.getLastModifiedTime(target).toMillis() }.getOrDefault(0L))
     }

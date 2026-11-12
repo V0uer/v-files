@@ -71,7 +71,8 @@ class Trash(
                     if (Files.exists(slot.resolve(PAYLOAD), LinkOption.NOFOLLOW_LINKS)) out.add(item)
                 }
             }
-        } catch (e: IOException) { return emptyList() }
+        } catch (e: IOException) { return emptyList()
+        } catch (e: java.nio.file.DirectoryIteratorException) { return emptyList() }
         out.sortByDescending { it.deletedAtMillis }
         return out
     }
