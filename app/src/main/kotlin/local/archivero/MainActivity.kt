@@ -55,8 +55,10 @@ class MainActivity : ComponentActivity() {
     }
 
     /** Con el dedo no hay foco visible; al tocar el control se sale de ese modo para que aparezca. */
-    private fun leaveTouchMode() {
-        if (window.decorView.isInTouchMode) findViewById<View>(android.R.id.content)?.requestFocusFromTouch()
+    private fun leaveTouchMode(): Boolean {
+        if (!window.decorView.isInTouchMode) return false
+        findViewById<View>(android.R.id.content)?.requestFocusFromTouch()
+        return true
     }
 
     private fun recode(e: KeyEvent, keyCode: Int) =
@@ -71,7 +73,14 @@ class MainActivity : ComponentActivity() {
         val code = event.keyCode
         val command = GamepadMap.commandFor(code)
         val isArrow = code in KeyEvent.KEYCODE_DPAD_UP..KeyEvent.KEYCODE_DPAD_CENTER
-        if (command != null || isArrow) leaveTouchMode()
+        if (event.action == KeyEvent.ACTION_UP && swallowedUps.remove(code)) return true
+        val woke = (command != null || isArrow) && leaveTouchMode()
+        // La primera pulsación tras usar el dedo solo despierta el foco: todavía no hay nada
+        // enfocado a la vista, y aceptar o moverse a ciegas haría algo que no se pidió.
+        if (woke && (command == PadCommand.OPEN || isArrow)) {
+            if (event.action == KeyEvent.ACTION_DOWN) swallowedUps.add(code)
+            return true
+        }
         return when (command) {
             null -> super.dispatchKeyEvent(event)
             PadCommand.OPEN -> super.dispatchKeyEvent(recode(event, KeyEvent.KEYCODE_DPAD_CENTER))
@@ -84,7 +93,7 @@ class MainActivity : ComponentActivity() {
                     if (event.repeatCount > 0) code in swallowedUps
                     else if (PadBus.handler?.invoke(command) == true) { swallowedUps.add(code); true }
                     else super.dispatchKeyEvent(event)
-                else -> if (swallowedUps.remove(code)) true else super.dispatchKeyEvent(event)
+                else -> super.dispatchKeyEvent(event)
             }
         }
     }
@@ -105,7 +114,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun step(direction: PadDirection) {
-        leaveTouchMode()
+        if (leaveTouchMode()) return
         val now = SystemClock.uptimeMillis()
         super.dispatchKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, direction.keyCode, 0))
         super.dispatchKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, direction.keyCode, 0))
