@@ -5,7 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import local.archivero.ui.BrowserScreen
 import androidx.compose.ui.Modifier
 import local.archivero.ui.ArchiveroTheme
 import local.archivero.ui.PermissionGate
@@ -17,7 +17,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             ArchiveroTheme {
                 Surface(Modifier.fillMaxSize(), color = Tone.Background) {
-                    PermissionGate { Text("Archivero") }
+                    PermissionGate { BrowserScreen() }
                 }
             }
         }

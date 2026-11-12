@@ -1,9 +1,20 @@
 package local.archivero.ui
 
+import androidx.compose.foundation.border
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.dp
 
 object Tone {
     val Background = Color(0xFF14171C)
@@ -36,3 +47,10 @@ private val Scheme = darkColorScheme(
 
 @Composable
 fun ArchiveroTheme(content: @Composable () -> Unit) = MaterialTheme(colorScheme = Scheme, content = content)
+
+/** Borde de acento de 2 dp mientras el elemento tiene el foco (control físico o teclado). */
+fun Modifier.focusRing(shape: Shape = RectangleShape, onFocus: (() -> Unit)? = null): Modifier = composed {
+    var focused by remember { mutableStateOf(false) }
+    onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocus?.invoke() }
+        .then(if (focused) Modifier.border(2.dp, Tone.Accent, shape) else Modifier)
+}
