@@ -1,0 +1,90 @@
+<style>
+.scr{background:#14171c;color:#e6e8eb;border-radius:14px;overflow:hidden;font-size:13px;border:1px solid #2a2f37;margin-bottom:10px}
+.top{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#1b1f26;border-bottom:1px solid #2a2f37}
+.crumb{flex:1;background:#232830;border-radius:8px;padding:6px 10px;color:#aeb4bd}
+.crumb b{color:#fff}
+.btn{background:#232830;border-radius:8px;padding:6px 10px;white-space:nowrap}
+.btn.on{background:#3b82f6;color:#fff}
+.body{display:flex;min-height:250px}
+.side{width:170px;background:#181c22;border-right:1px solid #2a2f37;padding:8px}
+.side .h{font-size:10px;letter-spacing:.08em;color:#7d8590;margin:10px 6px 4px;text-transform:uppercase}
+.side .i{padding:6px 8px;border-radius:7px}
+.side .i.sel{background:#263247;color:#fff}
+.pane{flex:1;padding:6px 10px;min-width:0}
+.pane + .pane{border-left:2px solid #2a2f37}
+.pane.act{box-shadow:inset 0 2px 0 #3b82f6}
+.ph{font-size:11px;color:#7d8590;padding:4px 6px}
+.row{display:flex;gap:10px;padding:6px;border-radius:7px}
+.row.sel{background:#263247}
+.row .n{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .m{color:#7d8590;white-space:nowrap}
+.bar{display:flex;gap:8px;padding:8px 12px;background:#1b1f26;border-top:1px solid #2a2f37}
+</style>
+
+<h2>¿Así te imaginas la pantalla principal?</h2>
+<p class="subtitle">Estilo explorador de Windows: favoritos a la izquierda, abre en Descargas, y un botón para partir en dos paneles.</p>
+
+<div class="label">1 · Al abrir (un panel)</div>
+<div class="scr">
+  <div class="top">
+    <div class="btn">←</div><div class="btn">↑</div>
+    <div class="crumb">Interno › <b>Download</b></div>
+    <div class="btn">🔍 Buscar</div>
+    <div class="btn">▥ 2 paneles</div>
+    <div class="btn">⋮</div>
+  </div>
+  <div class="body">
+    <div class="side">
+      <div class="h">Favoritos</div>
+      <div class="i sel">⬇ Descargas</div>
+      <div class="i">🎮 ROMs</div>
+      <div class="i">⭐ Smash Ultimate</div>
+      <div class="i">📁 Eden</div>
+      <div class="i" style="color:#7d8590">＋ Agregar</div>
+      <div class="h">Almacenamiento</div>
+      <div class="i">📱 Interno · 79 GB libres</div>
+      <div class="i">💾 Tarjeta SD</div>
+      <div class="h">Red</div>
+      <div class="i">🖥 PC (carpeta compartida)</div>
+    </div>
+    <div class="pane">
+      <div class="ph">Nombre ▾ · 5 elementos</div>
+      <div class="row"><div>📁</div><div class="n">DroidDeck</div><div class="m">carpeta</div></div>
+      <div class="row"><div>📁</div><div class="n">Smash Ultimate</div><div class="m">carpeta</div></div>
+      <div class="row"><div>🗜</div><div class="n">Firmware.22.1.0.zip</div><div class="m">342 MB · 10 nov</div></div>
+      <div class="row"><div>🗜</div><div class="n">Firmware.21.2.0.zip</div><div class="m">338 MB · 9 nov</div></div>
+      <div class="row"><div>📄</div><div class="n">prod.keys</div><div class="m">12 KB · 9 nov</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="label">2 · Con "2 paneles" activado</div>
+<div class="scr">
+  <div class="top">
+    <div class="btn">←</div><div class="btn">↑</div>
+    <div class="crumb">Interno › Download › <b>Smash Ultimate</b></div>
+    <div class="btn">🔍 Buscar</div>
+    <div class="btn on">▥ 2 paneles</div>
+    <div class="btn">⋮</div>
+  </div>
+  <div class="body">
+    <div class="side" style="width:46px;padding:8px 4px;text-align:center">
+      <div class="i sel">⬇</div><div class="i">🎮</div><div class="i">⭐</div><div class="i">📁</div><div class="i">📱</div><div class="i">💾</div><div class="i">🖥</div>
+    </div>
+    <div class="pane act">
+      <div class="ph">Download › Smash Ultimate</div>
+      <div class="row sel"><div>☑</div><div class="n">ARCropolis 4.1.1</div><div class="m">carpeta</div></div>
+      <div class="row"><div>🗜</div><div class="n">save data 2026-11-11.zip</div><div class="m">7 MB</div></div>
+    </div>
+    <div class="pane">
+      <div class="ph">Tarjeta SD › ROMs › Switch</div>
+      <div class="row"><div>📁</div><div class="n">Mods</div><div class="m">carpeta</div></div>
+      <div class="row"><div>🎮</div><div class="n">Super Smash Bros Ultimate.nsp</div><div class="m">16 GB</div></div>
+      <div class="row"><div>🎮</div><div class="n">Zelda TOTK.nsp</div><div class="m">24 GB</div></div>
+    </div>
+  </div>
+  <div class="bar">
+    <div class="btn on">Copiar al otro panel →</div><div class="btn">Mover →</div><div class="btn">Renombrar</div><div class="btn">Comprimir</div><div class="btn">Borrar</div>
+  </div>
+</div>
+<p class="subtitle">En dos paneles, los favoritos se encogen a iconos para dejar espacio, y aparece "Copiar/Mover al otro panel" con un toque.</p>
