@@ -33,6 +33,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
@@ -56,19 +57,20 @@ fun Sidebar(
     volumes: List<Volume>,
     currentPath: Path,
     onNavigate: (Path) -> Unit,
-    onToggle: () -> Unit,
+    onToggle: (() -> Unit)?,
     onRemove: (Favorite) -> Unit,
     onMove: (from: Int, to: Int) -> Unit,
     modifier: Modifier = Modifier,
     firstItemFocus: FocusRequester? = null,
+    fullWidth: Dp = 220.dp,
 ) {
     val here = currentPath.toString()
-    val width by animateDpAsState(if (compact) 48.dp else 220.dp, label = "ancho del panel")
+    val width by animateDpAsState(if (compact) 48.dp else fullWidth, label = "ancho del panel")
     Column(
         modifier.width(width).fillMaxHeight().background(Tone.Sidebar)
             .verticalScroll(rememberScrollState()).padding(vertical = 6.dp),
     ) {
-        Item(
+        if (onToggle != null) Item(
             glyph = "☰", title = if (compact) "Abrir panel" else "Encoger panel", subtitle = null, compact = compact,
             current = false, dimmed = false, onClick = onToggle, onLongClick = null, muted = true,
         )

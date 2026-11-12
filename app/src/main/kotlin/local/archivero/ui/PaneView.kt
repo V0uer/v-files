@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -116,13 +117,15 @@ fun PaneView(
     onActivate: () -> Unit = {},
 ) {
     val content by state.content.collectAsStateWithLifecycle()
-    Box(modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        // En un panel angosto (celular en vertical) tamaño y fecha van debajo del nombre.
+        val twoLine = maxWidth < 460.dp
         when (val c = content) {
             PaneContent.Loading -> Unit
             is PaneContent.Failed -> Notice(Fmt.listError(c.reason), "Reintentar") { onActivate(); state.refresh() }
             is PaneContent.Ready ->
                 if (c.entries.isEmpty()) Notice("Carpeta vacía", null) {}
-                else Entries(state, c.entries, active, grid, onOpenFile, onActivate)
+                else Entries(state, c.entries, active, grid, twoLine, onOpenFile, onActivate)
         }
     }
 }
@@ -148,6 +151,7 @@ private fun Entries(
     entries: List<FileEntry>,
     active: Boolean,
     grid: Boolean,
+    twoLine: Boolean,
     onOpenFile: (FileEntry) -> Unit,
     onActivate: () -> Unit,
 ) {
@@ -197,7 +201,7 @@ private fun Entries(
     } else {
         LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
             items(entries, key = { it.path.toString() }) { e ->
-                EntryRow(e, e.path in selection, pendingFocus == e.path, { pendingFocus = null },
+                EntryRow(e, twoLine, e.path in selection, pendingFocus == e.path, { pendingFocus = null },
                     { onFocused(e) }, { onClick(e) }, { onLong(e) })
             }
         }
@@ -207,13 +211,13 @@ private fun Entries(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun EntryRow(
-    e: FileEntry, selected: Boolean, wantsFocus: Boolean, onFocusTaken: () -> Unit,
+    e: FileEntry, twoLine: Boolean, selected: Boolean, wantsFocus: Boolean, onFocusTaken: () -> Unit,
     onFocused: () -> Unit, onClick: () -> Unit, onLongClick: () -> Unit,
 ) {
     val requester = remember { FocusRequester() }
     if (wantsFocus) LaunchedEffect(Unit) { runCatching { requester.requestFocus() }; onFocusTaken() }
     Row(
-        Modifier.fillMaxWidth().height(52.dp)
+        Modifier.fillMaxWidth().height(if (twoLine) 58.dp else 52.dp)
             .background(if (selected) Tone.Selected else Color.Transparent)
             .focusRequester(requester)
             .focusRing(onFocus = onFocused)
@@ -223,6 +227,17 @@ private fun EntryRow(
     ) {
         EntryIcon(e, 36.dp)
         Spacer(Modifier.width(12.dp))
+        if (twoLine) {
+            Column(Modifier.weight(1f)) {
+                Text(e.name, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 15.sp)
+                Text(
+                    listOfNotNull(if (e.isDirectory) null else Fmt.size(e.size), Fmt.date(e.modifiedMillis).ifEmpty { null })
+                        .joinToString("  ·  "),
+                    color = Tone.Muted, fontSize = 12.sp, maxLines = 1,
+                )
+            }
+            return@Row
+        }
         Text(e.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 15.sp)
         Text(
             if (e.isDirectory) "" else Fmt.size(e.size),

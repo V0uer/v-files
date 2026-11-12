@@ -3,6 +3,8 @@ package local.archivero.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -65,7 +67,9 @@ fun ChipButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier,
 
 /**
  * Barra superior: atrás, subir, migas tocables, buscar, "2 paneles" y menú.
- * Si [searchField] no es null ocupa el lugar de las migas.
+ * Si [searchField] no es null ocupa el lugar de las migas. Con [narrow] (celular en
+ * vertical) va en dos renglones: botones arriba y la ruta completa abajo; [onMenu]
+ * agrega el botón ☰ que abre favoritos y almacenamiento.
  */
 @Composable
 fun TopBar(
@@ -87,11 +91,39 @@ fun TopBar(
     onNewFolder: (() -> Unit)? = null,
     onSelectAll: (() -> Unit)? = null,
     searchField: (@Composable () -> Unit)? = null,
+    narrow: Boolean = false,
+    onMenu: (() -> Unit)? = null,
 ) {
+    val menu: @Composable () -> Unit = {
+        OverflowMenu(settings, onSort, onToggleGrid, onToggleHidden, onSetStart, onTrash, onNewFolder, onSelectAll)
+    }
+    if (narrow) {
+        Column(Modifier.fillMaxWidth().background(Tone.Surface)) {
+            Row(Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (onMenu != null) GlyphButton("☰", "Favoritos y almacenamiento", onMenu)
+                GlyphButton("←", "Atrás", onBack, enabled = canBack || searchField != null)
+                if (searchField == null) GlyphButton("↑", "Subir una carpeta", onUp, enabled = canUp)
+                Spacer(Modifier.weight(1f))
+                if (searchField == null && onSearch != null) GlyphButton("🔍", "Buscar", onSearch)
+                if (onToggleDual != null) {
+                    GlyphButton("◫", if (dual) "Un panel" else "2 paneles", onToggleDual, tint = if (dual) Tone.Accent else Tone.Text)
+                }
+                menu()
+            }
+            Box(
+                Modifier.fillMaxWidth().height(44.dp).padding(start = 4.dp, end = 8.dp, bottom = 6.dp),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                if (searchField != null) searchField() else Crumbs(crumbs, onCrumb, Modifier.fillMaxWidth())
+            }
+        }
+        return
+    }
     Row(
         Modifier.fillMaxWidth().height(52.dp).background(Tone.Surface).padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (onMenu != null) GlyphButton("☰", "Favoritos y almacenamiento", onMenu)
         GlyphButton("←", "Atrás", onBack, enabled = canBack || searchField != null)
         if (searchField != null) {
             Box(Modifier.weight(1f).padding(horizontal = 4.dp)) { searchField() }
@@ -101,32 +133,46 @@ fun TopBar(
             if (onSearch != null) GlyphButton("🔍", "Buscar", onSearch)
         }
         if (onToggleDual != null) ChipButton("2 paneles", onToggleDual, Modifier.padding(horizontal = 4.dp), on = dual)
-        Box {
-            var open by remember { mutableStateOf(false) }
-            GlyphButton("⋮", "Menú", { open = true })
-            DropdownMenu(open, { open = false }) {
-                val item: @Composable (String, Boolean, () -> Unit) -> Unit = { text, checked, action ->
-                    DropdownMenuItem(
-                        text = { Text((if (checked) "✓  " else "     ") + text) },
-                        onClick = { open = false; action() },
-                    )
-                }
-                if (onNewFolder != null) item("Nueva carpeta", false, onNewFolder)
-                if (onSelectAll != null) item("Seleccionar todo", false, onSelectAll)
-                if (onNewFolder != null || onSelectAll != null) HorizontalDivider(color = Tone.Line)
-                val sort = settings.sort
-                item("Por nombre", sort.key == SortKey.NAME) { onSort(sort.copy(key = SortKey.NAME)) }
-                item("Por fecha", sort.key == SortKey.DATE) { onSort(sort.copy(key = SortKey.DATE)) }
-                item("Por tamaño", sort.key == SortKey.SIZE) { onSort(sort.copy(key = SortKey.SIZE)) }
-                item("Por tipo", sort.key == SortKey.TYPE) { onSort(sort.copy(key = SortKey.TYPE)) }
-                item("Orden inverso", !sort.ascending) { onSort(sort.copy(ascending = !sort.ascending)) }
-                HorizontalDivider(color = Tone.Line)
-                item("Cuadrícula", settings.gridView, onToggleGrid)
-                item("Mostrar ocultos", settings.showHidden, onToggleHidden)
-                HorizontalDivider(color = Tone.Line)
-                item("Abrir aquí al iniciar", false, onSetStart)
-                if (onTrash != null) item("Papelera", false, onTrash)
+        menu()
+    }
+}
+
+@Composable
+private fun OverflowMenu(
+    settings: Settings,
+    onSort: (SortSpec) -> Unit,
+    onToggleGrid: () -> Unit,
+    onToggleHidden: () -> Unit,
+    onSetStart: () -> Unit,
+    onTrash: (() -> Unit)?,
+    onNewFolder: (() -> Unit)?,
+    onSelectAll: (() -> Unit)?,
+) {
+    Box {
+        var open by remember { mutableStateOf(false) }
+        GlyphButton("⋮", "Menú", { open = true })
+        DropdownMenu(open, { open = false }) {
+            val item: @Composable (String, Boolean, () -> Unit) -> Unit = { text, checked, action ->
+                DropdownMenuItem(
+                    text = { Text((if (checked) "✓  " else "     ") + text) },
+                    onClick = { open = false; action() },
+                )
             }
+            if (onNewFolder != null) item("Nueva carpeta", false, onNewFolder)
+            if (onSelectAll != null) item("Seleccionar todo", false, onSelectAll)
+            if (onNewFolder != null || onSelectAll != null) HorizontalDivider(color = Tone.Line)
+            val sort = settings.sort
+            item("Por nombre", sort.key == SortKey.NAME) { onSort(sort.copy(key = SortKey.NAME)) }
+            item("Por fecha", sort.key == SortKey.DATE) { onSort(sort.copy(key = SortKey.DATE)) }
+            item("Por tamaño", sort.key == SortKey.SIZE) { onSort(sort.copy(key = SortKey.SIZE)) }
+            item("Por tipo", sort.key == SortKey.TYPE) { onSort(sort.copy(key = SortKey.TYPE)) }
+            item("Orden inverso", !sort.ascending) { onSort(sort.copy(ascending = !sort.ascending)) }
+            HorizontalDivider(color = Tone.Line)
+            item("Cuadrícula", settings.gridView, onToggleGrid)
+            item("Mostrar ocultos", settings.showHidden, onToggleHidden)
+            HorizontalDivider(color = Tone.Line)
+            item("Abrir aquí al iniciar", false, onSetStart)
+            if (onTrash != null) item("Papelera", false, onTrash)
         }
     }
 }

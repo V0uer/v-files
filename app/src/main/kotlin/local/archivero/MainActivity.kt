@@ -1,5 +1,6 @@
 package local.archivero
 
+import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -9,8 +10,12 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import local.archivero.ui.ArchiveroTheme
@@ -37,10 +42,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Android 15 dibuja la app debajo de las barras del sistema; el contenido se aparta solo.
+        enableEdgeToEdge(SystemBarStyle.dark(Color.TRANSPARENT), SystemBarStyle.dark(Color.TRANSPARENT))
         setContent {
             ArchiveroTheme {
                 Surface(Modifier.fillMaxSize(), color = Tone.Background) {
-                    PermissionGate { BrowserScreen() }
+                    Box(Modifier.safeDrawingPadding()) { PermissionGate { BrowserScreen() } }
                 }
             }
         }

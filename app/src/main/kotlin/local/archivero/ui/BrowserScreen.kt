@@ -7,6 +7,17 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
@@ -108,6 +119,10 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
     var showTrash by remember { mutableStateOf(false) }
     /** Texto de la búsqueda en curso; null si no se está buscando. */
     var search by remember { mutableStateOf<String?>(null) }
+    /** Celular en vertical: el panel izquierdo es un cajón que sale con ☰. */
+    var narrowLayout by remember { mutableStateOf(false) }
+    var drawerOpen by remember { mutableStateOf(false) }
+    var drawerWantsFocus by remember { mutableStateOf(false) }
     val ops by app.queue.states.collectAsStateWithLifecycle()
     val say: (String) -> Unit = { text ->
         scope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(text) }
@@ -156,8 +171,9 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
         app.enqueue(request)
     }
 
-    BackHandler(enabled = selection.isNotEmpty() || search != null || canBack) {
+    BackHandler(enabled = drawerOpen || selection.isNotEmpty() || search != null || canBack) {
         when {
+            drawerOpen -> drawerOpen = false
             active.selection.value.isNotEmpty() -> active.clearSelection()
             search != null -> search = null
             else -> active.back()
@@ -245,7 +261,11 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
                 PadCommand.PREV_PANE -> { browser.setActive(left = true); browser.active.requestFocus(); true }
                 PadCommand.NEXT_PANE -> { browser.setActive(left = false); browser.active.requestFocus(); true }
                 PadCommand.TOGGLE_DUAL -> { browser.toggleDual(); browser.active.requestFocus(); true }
-                PadCommand.FAVORITES -> { runCatching { sidebarFocus.requestFocus() }; true }
+                PadCommand.FAVORITES -> {
+                    if (narrowLayout) { drawerWantsFocus = true; drawerOpen = true }
+                    else runCatching { sidebarFocus.requestFocus() }
+                    true
+                }
             }
         }
         onDispose { PadBus.handler = null }
@@ -255,6 +275,25 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
     // entra en él, y el botón ☰ lo fuerza a un lado u otro.
     var sidebarOverride by remember(dual) { mutableStateOf<Boolean?>(null) }
     val sidebarOpen = sidebarFocused || (sidebarOverride ?: !dual)
+
+
+    /** Favoritos y almacenamiento: riel a la izquierda en pantallas anchas, cajón en celular vertical. */
+    val sidebarView: @Composable (Boolean, Dp, (() -> Unit)?, Modifier, () -> Unit) -> Unit =
+        { compact, width, onToggle, mod, afterNavigate ->
+            Sidebar(
+                compact = compact,
+                favorites = settings.favorites,
+                volumes = volumes,
+                currentPath = path,
+                onNavigate = { active.navigate(it); afterNavigate() },
+                onToggle = onToggle,
+                onRemove = { fav -> update { s -> s.copy(favorites = s.favorites - fav) } },
+                onMove = { from, to -> update { s -> s.copy(favorites = moveItem(s.favorites, from, to)) } },
+                modifier = mod,
+                firstItemFocus = sidebarFocus,
+                fullWidth = width,
+            )
+        }
 
     val volume = volumes.filter { path.startsWith(it.root) }.maxByOrNull { it.root.nameCount }
     val crumbs = remember(path, volume) {
@@ -269,9 +308,15 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
             if (showTrash) {
                 TrashScreen(app.trash, volumes, onClose = { showTrash = false }, onChanged = { refreshBoth() }, say = say)
             } else {
-            Box(Modifier.fillMaxSize()) {
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                val narrow = maxWidth < 600.dp
+                val stacked = maxHeight > maxWidth
+                SideEffect { narrowLayout = narrow }
+                if (!narrow && drawerOpen) SideEffect { drawerOpen = false }
                 Column(Modifier.fillMaxSize()) {
                     TopBar(
+                        narrow = narrow,
+                        onMenu = if (narrow) ({ drawerOpen = true }) else null,
                         crumbs = crumbs,
                         canBack = canBack,
                         canUp = remember(path, volumes) { active.canGoUp() },
@@ -289,23 +334,12 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
                         searchField = search?.let { q ->
                             { SearchField(q, { search = it }, "Buscar en ${path.fileName ?: volume?.label ?: path}") }
                         },
-                onTrash = { showTrash = true },
+                        onTrash = { showTrash = true },
                         onNewFolder = { perform(Action.NEW_FOLDER) },
                         onSelectAll = { perform(Action.SELECT_ALL) },
                     )
                     Row(Modifier.weight(1f)) {
-                        Sidebar(
-                            compact = !sidebarOpen,
-                            favorites = settings.favorites,
-                            volumes = volumes,
-                            currentPath = path,
-                            onNavigate = { active.navigate(it); if (dual) sidebarOverride = null },
-                            onToggle = { sidebarOverride = !sidebarOpen },
-                            onRemove = { fav -> update { s -> s.copy(favorites = s.favorites - fav) } },
-                            onMove = { from, to -> update { s -> s.copy(favorites = moveItem(s.favorites, from, to)) } },
-                            modifier = Modifier.onFocusChanged { sidebarFocused = it.hasFocus },
-                            firstItemFocus = sidebarFocus,
-                        )
+                        if (!narrow) sidebarView(!sidebarOpen, 220.dp, { sidebarOverride = !sidebarOpen }, Modifier.onFocusChanged { sidebarFocused = it.hasFocus }) { if (dual) sidebarOverride = null }
                         val query = search
                         if (query != null) {
                             SearchView(
@@ -322,16 +356,30 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
                                 },
                                 modifier = Modifier.weight(1f),
                             )
-                        } else PaneSlot(
-                            browser.left, active === browser.left, dual, settings.gridView,
-                            { browser.setActive(left = true) }, openFile, Modifier.weight(1f),
-                        )
-                        if (dual && query == null) {
-                            Box(Modifier.width(1.dp).fillMaxHeight().background(Tone.Line))
+                        } else if (dual && stacked) {
+                            Column(Modifier.weight(1f)) {
+                                PaneSlot(
+                                    browser.left, active === browser.left, true, settings.gridView,
+                                    { browser.setActive(left = true) }, openFile, Modifier.weight(1f),
+                                )
+                                Box(Modifier.fillMaxWidth().height(1.dp).background(Tone.Line))
+                                PaneSlot(
+                                    browser.right, active === browser.right, true, settings.gridView,
+                                    { browser.setActive(left = false) }, openFile, Modifier.weight(1f),
+                                )
+                            }
+                        } else {
                             PaneSlot(
-                                browser.right, active === browser.right, true, settings.gridView,
-                                { browser.setActive(left = false) }, openFile, Modifier.weight(1f),
+                                browser.left, active === browser.left, dual, settings.gridView,
+                                { browser.setActive(left = true) }, openFile, Modifier.weight(1f),
                             )
+                            if (dual) {
+                                Box(Modifier.width(1.dp).fillMaxHeight().background(Tone.Line))
+                                PaneSlot(
+                                    browser.right, active === browser.right, true, settings.gridView,
+                                    { browser.setActive(left = false) }, openFile, Modifier.weight(1f),
+                                )
+                            }
                         }
                     }
                     if (selection.isNotEmpty() || clip != null) {
@@ -341,6 +389,15 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
                             onClear = { if (selection.isNotEmpty()) active.clearSelection() else browser.clipboard.value = null },
                             onMore = { menuOpen = true },
                         )
+                    }
+                }
+                if (narrow) {
+                    val drawerWidth = minOf(maxWidth * 0.82f, 300.dp)
+                    Drawer(drawerOpen, onClose = { drawerOpen = false }) {
+                        LaunchedEffect(Unit) {
+                            if (drawerWantsFocus) { drawerWantsFocus = false; runCatching { sidebarFocus.requestFocus() } }
+                        }
+                        sidebarView(false, drawerWidth, null, Modifier) { drawerOpen = false }
                     }
                 }
                 Box(Modifier.align(Alignment.BottomEnd)) {
@@ -403,5 +460,21 @@ private fun PaneSlot(
             )
         }
         PaneView(state, active, grid, onOpenFile, Modifier.weight(1f), onActivate)
+    }
+}
+
+/** Cajón que entra desde la izquierda sobre un velo; tocar el velo lo cierra. */
+@Composable
+private fun Drawer(open: Boolean, onClose: () -> Unit, content: @Composable () -> Unit) {
+    Box(Modifier.fillMaxSize()) {
+        AnimatedVisibility(open, enter = fadeIn(), exit = fadeOut()) {
+            Box(
+                Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f))
+                    .clickable(remember { MutableInteractionSource() }, null, onClick = onClose),
+            )
+        }
+        AnimatedVisibility(open, enter = slideInHorizontally { -it }, exit = slideOutHorizontally { -it }) {
+            content()
+        }
     }
 }
