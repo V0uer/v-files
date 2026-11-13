@@ -44,6 +44,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
@@ -136,6 +138,9 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
     // Reparto entre los dos paneles: se mueve en vivo al arrastrar y se guarda al soltar.
     var split by remember { mutableFloatStateOf(Split.clamp(settings.split)) }
     var dragging by remember { mutableStateOf(false) }
+    /** Posición sin imán mientras se arrastra: el imán solo cambia lo que se ve. */
+    var rawSplit by remember { mutableFloatStateOf(split) }
+    val haptics = LocalHapticFeedback.current
     LaunchedEffect(settings.split) { if (!dragging) split = Split.clamp(settings.split) }
     val say: (String) -> Unit = { text ->
         scope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(text) }
@@ -169,6 +174,7 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
     }
     // Al abrir, se limpia de la papelera lo que ya cumplió su plazo.
     LaunchedEffect(Unit) {
+        app.prefs.ensureQuickAccess()
         withContext(Dispatchers.IO) {
             app.volumes.volumes.value.forEach { v -> runCatching { app.trash.purgeExpired(v.root) } }
             // Lo extraído para abrir en la sesión anterior ya no hace falta.
@@ -285,10 +291,10 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
             }
             Action.FAVORITE -> picked.singleOrNull()?.let { folder ->
                 val target = folder.toString()
-                if (current.favorites.any { it.path == target }) say("Ya está en favoritos")
+                if (current.favorites.any { it.path == target }) say("Ya está en Acceso rápido")
                 else {
                     update { s -> s.copy(favorites = s.favorites + Favorite(target, folder.fileName?.toString() ?: target)) }
-                    say("Agregada a favoritos")
+                    say("Anclada a Acceso rápido")
                 }
                 pane.clearSelection()
             }
@@ -473,9 +479,22 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
                     SplitHandle(
                         sideBySide = !stacked,
                         adjustable = adjustable,
-                        onDrag = { delta -> dragging = true; split = Split.drag(split, delta, totalPx) },
+                        snap = settings.splitSnap,
+                        onDrag = { delta ->
+                            if (!dragging) { dragging = true; rawSplit = split }
+                            rawSplit = Split.drag(rawSplit, delta, totalPx)
+                            val next = Split.snap(rawSplit, settings.splitSnap)
+                            // Un toque leve al pegarse a la mitad, como un imán.
+                            if (next == Split.EVEN && split != Split.EVEN) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            split = next
+                        },
                         onDragStopped = { dragging = false; saveSplit() },
                         onReset = { split = Split.EVEN; saveSplit() },
+                        onToggleSnap = {
+                            val on = !settings.splitSnap
+                            update { it.copy(splitSnap = on) }
+                            say(if (on) "Imán a la mitad prendido" else "Imán a la mitad apagado")
+                        },
                     )
                 }
                 Column(Modifier.fillMaxSize()) {
@@ -540,7 +559,7 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
         )
         is Ask.Props -> PropertiesDialog(a.targets, app.fileOps) { ask = null }
         is Ask.Compress -> NameDialog(
-            "Comprimir", a.suggested, "Comprimir", selectStem = true,
+            "Comprimir", a.suggested, "Comprimir", selectStem = true, acceptInitial = true,
             onDismiss = { ask = null },
             onConfirm = { typed ->
                 ask = null

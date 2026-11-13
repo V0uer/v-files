@@ -26,6 +26,9 @@ MONO = {
     'fl_check': 'checkmark_24_regular',
     'fl_drive': 'hard_drive_24_regular',
     'fl_delete': 'delete_24_regular',
+    'fl_pin': 'pin_24_regular',
+    'fl_lock': 'lock_closed_24_regular',
+    'fl_unlock': 'lock_open_24_regular',
 }
 
 
@@ -69,6 +72,12 @@ custom = {
     'fl_music': svg_doc(
         grad('m', '#FF8A65', '#E8467C', 4, 2, 20, 22),
         f'<path d="{paths(open(os.path.join(HERE, "music_note_2_24_filled.svg"), encoding="utf-8").read())[0]}" fill="url(#m)"/>'),
+    'fl_desktop': svg_doc(
+        grad('k', '#5BC8F5', '#2F7AE5'),
+        f'<path d="{paths(open(os.path.join(HERE, "desktop_24_filled.svg"), encoding="utf-8").read())[0]}" fill="url(#k)"/>'),
+    'fl_download': svg_doc(
+        grad('w', '#4FE0B0', '#1F9E7A'),
+        f'<path d="{paths(open(os.path.join(HERE, "arrow_download_24_filled.svg"), encoding="utf-8").read())[0]}" fill="url(#w)"/>'),
 }
 for name, doc in custom.items():
     open(os.path.join(HERE, name + '.svg'), 'w', encoding='utf-8').write(doc)
@@ -84,6 +93,8 @@ COLOR = {
     'fl_app': 'apps_24_color',
     'fl_star': 'star_24_color',
     'fl_phone': 'phone_24_color',
+    'fl_desktop': 'fl_desktop',
+    'fl_download': 'fl_download',
 }
 jobs = [f'{os.path.join(HERE, src + ".svg")}={os.path.join(NODPI, name + ".png")}' for name, src in COLOR.items()]
 subprocess.run(['node', os.path.join(HERE, 'render.js'), *jobs], check=True, cwd=HERE)

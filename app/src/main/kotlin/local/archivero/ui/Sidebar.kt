@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import local.archivero.data.Favorite
+import local.archivero.data.QuickAccess
 import local.archivero.data.Volume
 import java.io.File
 import java.nio.file.Path
@@ -72,9 +73,10 @@ fun Sidebar(
             icon = { MonoIcon(Ico.menu, Tone.Muted, 20.dp) }, title = "Cerrar panel", subtitle = null, compact = compact,
             current = false, dimmed = false, onClick = onClose, onLongClick = null, muted = true,
         )
-        Header("Favoritos")
+        Header("Acceso rápido")
+        val internalRoot = volumes.firstOrNull { !it.isRemovable }?.root?.toString().orEmpty()
         if (favorites.isEmpty()) Text(
-            "Deja presionada una carpeta y elige Favorito", color = Tone.Muted, fontSize = 12.sp,
+            "Deja presionada una carpeta y elige Anclar", color = Tone.Muted, fontSize = 12.sp,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
         )
         favorites.forEachIndexed { i, fav ->
@@ -84,7 +86,8 @@ fun Sidebar(
             var menu by remember { mutableStateOf(false) }
             Box {
                 Item(
-                    icon = { ColorIcon(Ico.star, 20.dp) },
+                    icon = { ColorIcon(Ico.forQuickAccess(QuickAccess.knownOf(fav.path, internalRoot)), 22.dp) },
+                    trailing = { MonoIcon(Ico.pin, Tone.Muted, 16.dp) },
                     title = fav.label, subtitle = null, compact = compact,
                     current = fav.path == here, dimmed = !exists,
                     onClick = { if (exists) onNavigate(Paths.get(fav.path)) else menu = true },
@@ -96,7 +99,7 @@ fun Sidebar(
                         "Esta carpeta ya no existe", color = Tone.Muted, fontSize = 13.sp,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     )
-                    DropdownMenuItem({ Text("Quitar de favoritos") }, { menu = false; onRemove(fav) })
+                    DropdownMenuItem({ Text("Desanclar") }, { menu = false; onRemove(fav) })
                     if (i > 0) DropdownMenuItem({ Text("Subir") }, { menu = false; onMove(i, i - 1) })
                     if (i < favorites.lastIndex) DropdownMenuItem({ Text("Bajar") }, { menu = false; onMove(i, i + 1) })
                 }
@@ -127,6 +130,7 @@ private fun Header(text: String) = Text(
 private fun Item(
     icon: @Composable () -> Unit, title: String, subtitle: String?, compact: Boolean, current: Boolean, dimmed: Boolean,
     onClick: () -> Unit, onLongClick: (() -> Unit)?, modifier: Modifier = Modifier, muted: Boolean = false,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier.fillMaxWidth().height(if (subtitle != null && !compact) 50.dp else 44.dp)
@@ -146,5 +150,6 @@ private fun Item(
             Text(title, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (muted) Tone.Muted else Tone.Text)
             if (subtitle != null) Text(subtitle, fontSize = 11.sp, color = Tone.Muted, maxLines = 1)
         }
+        if (trailing != null && !compact) Box(Modifier.padding(end = 12.dp)) { trailing() }
     }
 }

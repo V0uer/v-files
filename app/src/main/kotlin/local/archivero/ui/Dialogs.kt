@@ -51,12 +51,13 @@ private fun rememberInitialFocus(): FocusRequester {
 
 /**
  * Pide un nombre (renombrar o carpeta nueva). Con [selectStem] el nombre llega
- * preseleccionado sin la extensión. Aceptar se apaga si el nombre no es válido.
+ * preseleccionado sin la extensión. Aceptar se apaga si el nombre no es válido, y
+ * también si quedó igual salvo con [acceptInitial] (el nombre llega como sugerencia).
  */
 @Composable
 fun NameDialog(
     title: String, initial: String, confirm: String, selectStem: Boolean,
-    onDismiss: () -> Unit, onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit, onConfirm: (String) -> Unit, acceptInitial: Boolean = false,
 ) {
     var value by remember {
         val dot = initial.lastIndexOf('.')
@@ -64,7 +65,7 @@ fun NameDialog(
         mutableStateOf(TextFieldValue(initial, TextRange(0, end)))
     }
     val name = value.text.trim()
-    val ok = Names.isValid(name) && name != initial
+    val ok = Names.isValid(name) && (acceptInitial || name != initial)
     val focus = rememberInitialFocus()
     AlertDialog(
         onDismissRequest = onDismiss,

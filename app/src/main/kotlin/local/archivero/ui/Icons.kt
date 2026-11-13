@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import local.archivero.R
 import local.archivero.core.EntryKind
+import local.archivero.data.QuickAccess
 
 /**
  * Iconos de Fluent UI System Icons (MIT, Microsoft), los de Windows 11. Los "mono" se tiñen;
@@ -32,6 +33,20 @@ object Ico {
     val phone = R.drawable.fl_phone
     val folder = R.drawable.fl_folder
     val document = R.drawable.fl_document
+    val pin = R.drawable.fl_pin
+    val lock = R.drawable.fl_lock
+    val unlock = R.drawable.fl_unlock
+
+    /** Icono de una carpeta de Acceso rápido: las típicas llevan el suyo, como en Windows. */
+    fun forQuickAccess(known: QuickAccess.Known?): Int = when (known) {
+        QuickAccess.Known.DESKTOP -> R.drawable.fl_desktop
+        QuickAccess.Known.DOWNLOADS -> R.drawable.fl_download
+        QuickAccess.Known.DOCUMENTS -> R.drawable.fl_document
+        QuickAccess.Known.PICTURES -> R.drawable.fl_image
+        QuickAccess.Known.VIDEOS -> R.drawable.fl_video
+        QuickAccess.Known.MUSIC -> R.drawable.fl_music
+        null -> R.drawable.fl_folder
+    }
 
     fun forKind(kind: EntryKind): Int = when (kind) {
         EntryKind.FOLDER -> R.drawable.fl_folder

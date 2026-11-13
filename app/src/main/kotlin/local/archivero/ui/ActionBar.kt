@@ -34,7 +34,7 @@ enum class Action(val label: String) {
     COPY("Copiar"),
     CUT("Cortar"),
     PASTE("Pegar"),
-    FAVORITE("Agregar a favoritos"),
+    FAVORITE("Anclar a Acceso rápido"),
     RENAME("Renombrar"),
     TRASH("Borrar"),
     DELETE("Borrar definitivo"),
@@ -134,8 +134,8 @@ fun ActionBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             items(primary) { a ->
-                val label = when (a) { Action.PASTE -> "Pegar aquí"; Action.FAVORITE -> "Favorito"; else -> a.label }
-                ChipButton(label, { onAction(a) }, leading = if (a == Action.FAVORITE) ({ ColorIcon(Ico.star, 18.dp) }) else null)
+                val label = when (a) { Action.PASTE -> "Pegar aquí"; Action.FAVORITE -> "Anclar"; else -> a.label }
+                ChipButton(label, { onAction(a) }, leading = if (a == Action.FAVORITE) ({ MonoIcon(Ico.pin, size = 18.dp) }) else null)
             }
         }
         ChipButton("Más", onMore, Modifier.padding(start = 6.dp), leading = { MonoIcon(Ico.more, size = 18.dp) })

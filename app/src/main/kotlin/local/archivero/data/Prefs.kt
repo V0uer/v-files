@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import local.archivero.core.SortKey
 import local.archivero.core.SortSpec
+import java.io.File
 import java.net.URLDecoder
 import java.net.URLEncoder
 
@@ -30,6 +31,8 @@ data class Settings(
     val splitAdjustable: Boolean = true,
     /** Fracción que ocupa el primer panel (0.5 = mitad y mitad). */
     val split: Float = 0.5f,
+    /** Imán: al arrastrar cerca de la mitad, la división se pega ahí. */
+    val splitSnap: Boolean = false,
 )
 
 object PrefsCodec {
@@ -51,6 +54,28 @@ object PrefsCodec {
 
     private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
     private fun dec(s: String) = URLDecoder.decode(s, "UTF-8")
+}
+
+/** Acceso rápido: las carpetas típicas, como en el Explorador de Windows. */
+object QuickAccess {
+    enum class Known(val dir: String, val label: String) {
+        DESKTOP("Desktop", "Escritorio"),
+        DOWNLOADS("Download", "Descargas"),
+        DOCUMENTS("Documents", "Documentos"),
+        PICTURES("Pictures", "Imágenes"),
+        VIDEOS("Movies", "Videos"),
+        MUSIC("Music", "Música"),
+    }
+
+    /** Las típicas que existen en este aparato, en el orden de Windows. */
+    fun defaults(root: String, exists: (String) -> Boolean): List<Favorite> =
+        Known.entries.map { "$root/${it.dir}" to it.label }.filter { exists(it.first) }.map { Favorite(it.first, it.second) }
+
+    /** Las típicas primero y luego las propias que no estén ya. */
+    fun merge(defaults: List<Favorite>, current: List<Favorite>): List<Favorite> =
+        defaults + current.filter { c -> defaults.none { it.path == c.path } }
+
+    fun knownOf(path: String, root: String): Known? = Known.entries.firstOrNull { "$root/${it.dir}" == path }
 }
 
 /** Mueve un elemento de [from] a [to]; con índices fuera de rango devuelve la lista igual. */
@@ -75,10 +100,30 @@ class Prefs(private val context: Context) {
         val second = stringPreferencesKey("second_path")
         val splitAdjustable = booleanPreferencesKey("split_adjustable")
         val split = floatPreferencesKey("split")
+        val splitSnap = booleanPreferencesKey("split_snap")
+        val quickAccess = booleanPreferencesKey("quick_access_v1")
     }
 
     val defaultStart: String =
         Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath
+
+    private val quickAccessDefaults by lazy {
+        QuickAccess.defaults(Environment.getExternalStorageDirectory().absolutePath) { File(it).isDirectory }
+    }
+
+    /**
+     * Una sola vez: a quien ya tenía favoritos se le agregan las carpetas típicas de Acceso
+     * rápido, sin perder las suyas. Si luego quita alguna, no vuelve.
+     */
+    suspend fun ensureQuickAccess() {
+        context.store.edit { p ->
+            if (p[K.quickAccess] == true) return@edit
+            if (p.contains(K.favorites)) {
+                p[K.favorites] = PrefsCodec.encodeFavorites(QuickAccess.merge(quickAccessDefaults, PrefsCodec.decodeFavorites(p[K.favorites])))
+            }
+            p[K.quickAccess] = true
+        }
+    }
 
     val settings: Flow<Settings> = context.store.data.map(::read)
 
@@ -87,7 +132,7 @@ class Prefs(private val context: Context) {
     private fun read(p: Preferences) = Settings(
         startPath = p[K.start] ?: defaultStart,
         favorites = if (p.contains(K.favorites)) PrefsCodec.decodeFavorites(p[K.favorites])
-        else listOf(Favorite(defaultStart, "Descargas")),
+        else quickAccessDefaults,
         showHidden = p[K.hidden] ?: false,
         sort = SortSpec(
             runCatching { SortKey.valueOf(p[K.sortKey] ?: "NAME") }.getOrDefault(SortKey.NAME),
@@ -98,6 +143,7 @@ class Prefs(private val context: Context) {
         secondPanePath = p[K.second],
         splitAdjustable = p[K.splitAdjustable] ?: true,
         split = p[K.split] ?: 0.5f,
+        splitSnap = p[K.splitSnap] ?: false,
     )
 
     suspend fun update(transform: (Settings) -> Settings) {
@@ -113,6 +159,8 @@ class Prefs(private val context: Context) {
             if (s.secondPanePath != null) p[K.second] = s.secondPanePath else p.remove(K.second)
             p[K.splitAdjustable] = s.splitAdjustable
             p[K.split] = s.split
+            p[K.splitSnap] = s.splitSnap
+            p[K.quickAccess] = true
         }
     }
 }
