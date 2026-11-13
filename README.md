@@ -33,3 +33,14 @@ Lista de pruebas y controles: `docs/verificacion-etapa-1.md`.
 Requiere JDK 17 y el SDK de Android (plataforma 35); las rutas van en `env.sh` y `local.properties`.
 
 Diseño y planes: `docs/superpowers/`.
+
+## Iconos
+
+Son los de [Fluent UI System Icons](https://github.com/microsoft/fluentui-system-icons)
+(Microsoft, licencia MIT; ver `tools/fluent-icons/LICENSE.txt`), los mismos de Windows 11.
+La carpeta, el zip y la música se arman con la forma de Fluent y los colores de Windows,
+porque Fluent no los trae a color. Para regenerarlos:
+
+```bash
+cd tools/fluent-icons && npm install && python build_icons.py
+```

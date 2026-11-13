@@ -82,7 +82,7 @@ fun TrashScreen(
             Modifier.fillMaxWidth().height(52.dp).background(Tone.Surface).padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            GlyphButton("←", "Cerrar la papelera", onClose, Modifier.focusRequester(closeFocus))
+            GlyphButton(Ico.back, "Cerrar la papelera", onClose, Modifier.focusRequester(closeFocus))
             Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
                 Text("Papelera", fontSize = 16.sp)
                 Text("Lo borrado se elimina solo a los ${Trash.RETENTION_DAYS} días", fontSize = 11.sp, color = Tone.Muted)
@@ -101,7 +101,7 @@ fun TrashScreen(
                         Modifier.fillMaxWidth().padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(if (t.item.isDirectory) "📁" else "📄", fontSize = 20.sp)
+                        ColorIcon(if (t.item.isDirectory) Ico.folder else Ico.document, 28.dp)
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(

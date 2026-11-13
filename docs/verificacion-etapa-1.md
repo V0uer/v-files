@@ -44,3 +44,4 @@ Estas partes se escribieron sin poder verlas correr, así que son las más proba
 | L1 / R1 | Panel izquierdo / derecho |
 | Start | Uno o dos paneles |
 | Select | Abrir o cerrar favoritos sobre el panel activo |
+| L2 / R2 | Achicar / agrandar el panel activo (si "Ajustar tamaño de paneles" está prendido) |

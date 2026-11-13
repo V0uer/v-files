@@ -3,7 +3,7 @@ package local.archivero.ui
 import android.view.KeyEvent
 import kotlin.math.abs
 
-enum class PadCommand { OPEN, BACK, SELECT, MENU, PREV_PANE, NEXT_PANE, TOGGLE_DUAL, FAVORITES }
+enum class PadCommand { OPEN, BACK, SELECT, MENU, PREV_PANE, NEXT_PANE, TOGGLE_DUAL, FAVORITES, SHRINK_PANE, GROW_PANE }
 
 object GamepadMap {
     fun commandFor(keyCode: Int): PadCommand? = when (keyCode) {
@@ -15,6 +15,8 @@ object GamepadMap {
         KeyEvent.KEYCODE_BUTTON_R1 -> PadCommand.NEXT_PANE
         KeyEvent.KEYCODE_BUTTON_START -> PadCommand.TOGGLE_DUAL
         KeyEvent.KEYCODE_BUTTON_SELECT -> PadCommand.FAVORITES
+        KeyEvent.KEYCODE_BUTTON_L2 -> PadCommand.SHRINK_PANE
+        KeyEvent.KEYCODE_BUTTON_R2 -> PadCommand.GROW_PANE
         else -> null
     }
 }

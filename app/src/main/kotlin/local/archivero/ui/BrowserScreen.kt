@@ -34,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -124,11 +125,16 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
     var drawerPane by remember { mutableStateOf<PaneState?>(null) }
     var drawerWantsFocus by remember { mutableStateOf(false) }
     val ops by app.queue.states.collectAsStateWithLifecycle()
+    // Reparto entre los dos paneles: se mueve en vivo al arrastrar y se guarda al soltar.
+    var split by remember { mutableFloatStateOf(Split.clamp(settings.split)) }
+    var dragging by remember { mutableStateOf(false) }
+    LaunchedEffect(settings.split) { if (!dragging) split = Split.clamp(settings.split) }
     val say: (String) -> Unit = { text ->
         scope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(text) }
     }
     val update: ((Settings) -> Settings) -> Unit = { change -> scope.launch { app.prefs.update(change) } }
     val refreshBoth = { browser.left.refresh(); browser.right.refresh() }
+    val saveSplit: () -> Unit = { val value = split; update { it.copy(split = value) } }
 
     // Cambiar orden u ocultos vuelve a listar; al volver a la app también (pudo cambiar algo fuera).
     var listedWith by remember { mutableStateOf(settings.showHidden to settings.sort) }
@@ -273,6 +279,12 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
                 PadCommand.PREV_PANE -> { drawerPane = null; browser.setActive(left = true); browser.active.requestFocus(); true }
                 PadCommand.NEXT_PANE -> { drawerPane = null; browser.setActive(left = false); browser.active.requestFocus(); true }
                 PadCommand.TOGGLE_DUAL -> { drawerPane = null; browser.toggleDual(); browser.active.requestFocus(); true }
+                PadCommand.GROW_PANE, PadCommand.SHRINK_PANE ->
+                    if (!browser.dual.value || !current.splitAdjustable) false
+                    else {
+                        split = Split.step(split, browser.activeIsLeft.value, grow = command == PadCommand.GROW_PANE)
+                        saveSplit(); true
+                    }
                 PadCommand.FAVORITES -> {
                     if (drawerPane === browser.active) closeDrawer()
                     else { drawerWantsFocus = true; drawerPane = browser.active }
@@ -325,9 +337,10 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
                     onTrash = { showTrash = true },
                     onNewFolder = { activate(); perform(Action.NEW_FOLDER) },
                     onSelectAll = { activate(); perform(Action.SELECT_ALL) },
+                    onToggleSplit = { update { it.copy(splitAdjustable = !it.splitAdjustable) } },
                     paneToggle = when {
-                        !dual -> PaneToggle("◫", "Abrir segundo panel") { browser.toggleDual() }
-                        pane === browser.right -> PaneToggle("✕", "Cerrar este panel") { browser.toggleDual() }
+                        !dual -> PaneToggle(Ico.splitV, "Abrir segundo panel") { browser.toggleDual() }
+                        pane === browser.right -> PaneToggle(Ico.close, "Cerrar este panel") { browser.toggleDual() }
                         else -> null
                     },
                     searchField = if (searching) {
@@ -382,19 +395,31 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
             } else {
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 val stacked = maxHeight > maxWidth
+                val adjustable = settings.splitAdjustable
+                val first = if (adjustable) split else Split.EVEN
+                val totalPx = (if (stacked) constraints.maxHeight else constraints.maxWidth).toFloat()
+                val handle: @Composable () -> Unit = {
+                    SplitHandle(
+                        sideBySide = !stacked,
+                        adjustable = adjustable,
+                        onDrag = { delta -> dragging = true; split = Split.drag(split, delta, totalPx) },
+                        onDragStopped = { dragging = false; saveSplit() },
+                        onReset = { split = Split.EVEN; saveSplit() },
+                    )
+                }
                 Column(Modifier.fillMaxSize()) {
                     if (dual && stacked) {
                         Column(Modifier.weight(1f)) {
-                            paneSlot(browser.left, Modifier.weight(1f))
-                            Box(Modifier.fillMaxWidth().height(1.dp).background(Tone.Line))
-                            paneSlot(browser.right, Modifier.weight(1f))
+                            paneSlot(browser.left, Modifier.weight(first))
+                            handle()
+                            paneSlot(browser.right, Modifier.weight(1f - first))
                         }
                     } else {
                         Row(Modifier.weight(1f)) {
-                            paneSlot(browser.left, Modifier.weight(1f))
+                            paneSlot(browser.left, Modifier.weight(if (dual) first else 1f))
                             if (dual) {
-                                Box(Modifier.width(1.dp).fillMaxHeight().background(Tone.Line))
-                                paneSlot(browser.right, Modifier.weight(1f))
+                                handle()
+                                paneSlot(browser.right, Modifier.weight(1f - first))
                             }
                         }
                     }

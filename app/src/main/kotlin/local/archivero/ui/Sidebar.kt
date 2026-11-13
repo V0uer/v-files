@@ -69,12 +69,12 @@ fun Sidebar(
             .verticalScroll(rememberScrollState()).padding(vertical = 6.dp),
     ) {
         Item(
-            glyph = "☰", title = "Cerrar panel", subtitle = null, compact = compact,
+            icon = { MonoIcon(Ico.menu, Tone.Muted, 20.dp) }, title = "Cerrar panel", subtitle = null, compact = compact,
             current = false, dimmed = false, onClick = onClose, onLongClick = null, muted = true,
         )
         Header("Favoritos")
         if (favorites.isEmpty()) Text(
-            "Deja presionada una carpeta y elige ★ Favorito", color = Tone.Muted, fontSize = 12.sp,
+            "Deja presionada una carpeta y elige Favorito", color = Tone.Muted, fontSize = 12.sp,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
         )
         favorites.forEachIndexed { i, fav ->
@@ -84,7 +84,7 @@ fun Sidebar(
             var menu by remember { mutableStateOf(false) }
             Box {
                 Item(
-                    glyph = "★",
+                    icon = { ColorIcon(Ico.star, 20.dp) },
                     title = fav.label, subtitle = null, compact = compact,
                     current = fav.path == here, dimmed = !exists,
                     onClick = { if (exists) onNavigate(Paths.get(fav.path)) else menu = true },
@@ -107,7 +107,7 @@ fun Sidebar(
         volumes.forEachIndexed { i, v ->
             Item(
                 modifier = if (i == 0 && favorites.isEmpty() && firstItemFocus != null) Modifier.focusRequester(firstItemFocus) else Modifier,
-                glyph = if (v.isRemovable) "💾" else "📱", title = v.label,
+                icon = { if (v.isRemovable) MonoIcon(Ico.drive, size = 22.dp) else ColorIcon(Ico.phone, 22.dp) }, title = v.label,
                 subtitle = "${Fmt.size(v.freeBytes)} libres", compact = compact,
                 current = v.root == currentPath, dimmed = false,
                 onClick = { onNavigate(v.root) }, onLongClick = null,
@@ -125,7 +125,7 @@ private fun Header(text: String) = Text(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun Item(
-    glyph: String, title: String, subtitle: String?, compact: Boolean, current: Boolean, dimmed: Boolean,
+    icon: @Composable () -> Unit, title: String, subtitle: String?, compact: Boolean, current: Boolean, dimmed: Boolean,
     onClick: () -> Unit, onLongClick: (() -> Unit)?, modifier: Modifier = Modifier, muted: Boolean = false,
 ) {
     Row(
@@ -141,9 +141,7 @@ private fun Item(
             .alpha(if (dimmed) 0.4f else 1f),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.width(48.dp), contentAlignment = Alignment.Center) {
-            Text(glyph, fontSize = 16.sp, color = if (muted) Tone.Muted else Tone.Text)
-        }
+        Box(Modifier.width(48.dp), contentAlignment = Alignment.Center) { icon() }
         if (!compact) Column(Modifier.weight(1f).padding(end = 8.dp)) {
             Text(title, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = if (muted) Tone.Muted else Tone.Text)
             if (subtitle != null) Text(subtitle, fontSize = 11.sp, color = Tone.Muted, maxLines = 1)

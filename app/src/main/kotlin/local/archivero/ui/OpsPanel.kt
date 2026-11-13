@@ -95,7 +95,7 @@ private fun RunningRow(state: OpState, onCancel: (Long) -> Unit) {
                     fontSize = 11.sp, color = Tone.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
-            GlyphButton("✕", "Cancelar", { onCancel(state.id) })
+            GlyphButton(Ico.close, "Cancelar", { onCancel(state.id) })
         }
         if (p != null && state.status != OpStatus.QUEUED) {
             LinearProgressIndicator(

@@ -20,6 +20,8 @@ class GamepadMapTest {
             KeyEvent.KEYCODE_BUTTON_R1 to PadCommand.NEXT_PANE,
             KeyEvent.KEYCODE_BUTTON_START to PadCommand.TOGGLE_DUAL,
             KeyEvent.KEYCODE_BUTTON_SELECT to PadCommand.FAVORITES,
+            KeyEvent.KEYCODE_BUTTON_L2 to PadCommand.SHRINK_PANE,
+            KeyEvent.KEYCODE_BUTTON_R2 to PadCommand.GROW_PANE,
         )
         for ((code, command) in expected) assertEquals(command, GamepadMap.commandFor(code))
         assertEquals(PadCommand.entries.toSet(), expected.values.toSet())

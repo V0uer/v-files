@@ -74,17 +74,6 @@ object Fmt {
     fun date(millis: Long): String =
         if (millis <= 0) "" else day.format(Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()))
 
-    fun glyph(kind: EntryKind): String = when (kind) {
-        EntryKind.FOLDER -> "📁"
-        EntryKind.IMAGE -> "🖼"
-        EntryKind.VIDEO -> "🎬"
-        EntryKind.AUDIO -> "🎵"
-        EntryKind.ARCHIVE -> "🗜"
-        EntryKind.TEXT -> "📝"
-        EntryKind.APK -> "📦"
-        EntryKind.OTHER -> "📄"
-    }
-
     fun failure(kind: OpFailure.Kind): String = when (kind) {
         OpFailure.Kind.NO_SPACE -> "No hay espacio suficiente"
         OpFailure.Kind.FILE_TOO_LARGE -> "El archivo es demasiado grande para este almacenamiento"
@@ -291,7 +280,7 @@ fun EntryIcon(e: FileEntry, size: Dp) {
         )
     } else {
         Box(Modifier.size(size), contentAlignment = Alignment.Center) {
-            Text(Fmt.glyph(e.kind), fontSize = (size.value * 0.6f).sp)
+            ColorIcon(Ico.forKind(e.kind), size * 0.8f)
         }
     }
 }

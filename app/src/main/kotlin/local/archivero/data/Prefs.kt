@@ -5,6 +5,7 @@ import android.os.Environment
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -25,6 +26,10 @@ data class Settings(
     val gridView: Boolean,
     val dualPane: Boolean,
     val secondPanePath: String?,
+    /** Si la división entre los dos paneles se puede arrastrar. */
+    val splitAdjustable: Boolean = true,
+    /** Fracción que ocupa el primer panel (0.5 = mitad y mitad). */
+    val split: Float = 0.5f,
 )
 
 object PrefsCodec {
@@ -68,6 +73,8 @@ class Prefs(private val context: Context) {
         val grid = booleanPreferencesKey("grid")
         val dual = booleanPreferencesKey("dual")
         val second = stringPreferencesKey("second_path")
+        val splitAdjustable = booleanPreferencesKey("split_adjustable")
+        val split = floatPreferencesKey("split")
     }
 
     val defaultStart: String =
@@ -89,6 +96,8 @@ class Prefs(private val context: Context) {
         gridView = p[K.grid] ?: false,
         dualPane = p[K.dual] ?: false,
         secondPanePath = p[K.second],
+        splitAdjustable = p[K.splitAdjustable] ?: true,
+        split = p[K.split] ?: 0.5f,
     )
 
     suspend fun update(transform: (Settings) -> Settings) {
@@ -102,6 +111,8 @@ class Prefs(private val context: Context) {
             p[K.grid] = s.gridView
             p[K.dual] = s.dualPane
             if (s.secondPanePath != null) p[K.second] = s.secondPanePath else p.remove(K.second)
+            p[K.splitAdjustable] = s.splitAdjustable
+            p[K.split] = s.split
         }
     }
 }

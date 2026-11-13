@@ -104,7 +104,7 @@ fun ActionBar(
         modifier.fillMaxWidth().height(52.dp).background(Tone.Surface).padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        GlyphButton("✕", if (selectionCount > 0) "Quitar selección" else "Vaciar portapapeles", onClear)
+        GlyphButton(Ico.close, if (selectionCount > 0) "Quitar selección" else "Vaciar portapapeles", onClear)
         Text(
             when {
                 selectionCount > 0 -> "$selectionCount"
@@ -121,11 +121,11 @@ fun ActionBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             items(primary) { a ->
-                val label = when (a) { Action.PASTE -> "Pegar aquí"; Action.FAVORITE -> "★ Favorito"; else -> a.label }
-                ChipButton(label, { onAction(a) })
+                val label = when (a) { Action.PASTE -> "Pegar aquí"; Action.FAVORITE -> "Favorito"; else -> a.label }
+                ChipButton(label, { onAction(a) }, leading = if (a == Action.FAVORITE) ({ ColorIcon(Ico.star, 18.dp) }) else null)
             }
         }
-        ChipButton("Más ⋮", onMore, Modifier.padding(start = 6.dp))
+        ChipButton("Más", onMore, Modifier.padding(start = 6.dp), leading = { MonoIcon(Ico.more, size = 18.dp) })
     }
 }
 

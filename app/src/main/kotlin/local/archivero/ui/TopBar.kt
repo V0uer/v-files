@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -43,10 +44,10 @@ import java.nio.file.Path
 
 private val Round = RoundedCornerShape(8.dp)
 
-/** Botón cuadrado con un glifo; [label] es lo que lee la accesibilidad. */
+/** Botón cuadrado con un icono monocromo; [label] es lo que lee la accesibilidad. */
 @Composable
 fun GlyphButton(
-    glyph: String, label: String, onClick: () -> Unit,
+    icon: Int, label: String, onClick: () -> Unit,
     modifier: Modifier = Modifier, enabled: Boolean = true, tint: Color = Tone.Text, size: Dp = 44.dp,
 ) {
     Box(
@@ -54,17 +55,23 @@ fun GlyphButton(
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
-    ) { Text(glyph, fontSize = 18.sp, color = if (enabled) tint else Tone.Muted.copy(alpha = 0.4f)) }
+    ) { MonoIcon(icon, if (enabled) tint else Tone.Muted.copy(alpha = 0.4f), size = 22.dp) }
 }
 
 /** Botón con texto corto, del alto de la barra. */
 @Composable
-fun ChipButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, on: Boolean = false, enabled: Boolean = true) {
-    Box(
+fun ChipButton(
+    text: String, onClick: () -> Unit, modifier: Modifier = Modifier, on: Boolean = false, enabled: Boolean = true,
+    leading: (@Composable () -> Unit)? = null,
+) {
+    Row(
         modifier.height(36.dp).clip(Round).background(if (on) Tone.Accent else Tone.SurfaceHigh).focusRing(Round)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick).padding(horizontal = 12.dp),
-        contentAlignment = Alignment.Center,
-    ) { Text(text, fontSize = 13.sp, maxLines = 1, color = if (enabled) Tone.Text else Tone.Muted.copy(alpha = 0.5f)) }
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (leading != null) { leading(); Spacer(Modifier.width(6.dp)) }
+        Text(text, fontSize = 13.sp, maxLines = 1, color = if (enabled) Tone.Text else Tone.Muted.copy(alpha = 0.5f))
+    }
 }
 
 /**
@@ -93,6 +100,7 @@ fun PaneHeader(
     onTrash: () -> Unit,
     onNewFolder: () -> Unit,
     onSelectAll: () -> Unit,
+    onToggleSplit: () -> Unit,
     paneToggle: PaneToggle?,
     searchField: (@Composable () -> Unit)? = null,
 ) {
@@ -100,13 +108,13 @@ fun PaneHeader(
         if (showActive) Box(Modifier.fillMaxWidth().height(2.dp).background(if (active) Tone.Accent else Tone.Line))
         val dim = if (showActive && !active) Tone.Muted else Tone.Text
         Row(Modifier.fillMaxWidth().height(44.dp).padding(horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            GlyphButton("☰", "Favoritos y almacenamiento", onMenu, size = HeaderButton, tint = dim)
-            GlyphButton("←", "Atrás", onBack, enabled = canBack || searchField != null, size = HeaderButton, tint = dim)
-            GlyphButton("↑", "Subir una carpeta", onUp, enabled = canUp && searchField == null, size = HeaderButton, tint = dim)
+            GlyphButton(Ico.menu, "Favoritos y almacenamiento", onMenu, size = HeaderButton, tint = dim)
+            GlyphButton(Ico.back, "Atrás", onBack, enabled = canBack || searchField != null, size = HeaderButton, tint = dim)
+            GlyphButton(Ico.up, "Subir una carpeta", onUp, enabled = canUp && searchField == null, size = HeaderButton, tint = dim)
             Spacer(Modifier.weight(1f))
-            if (searchField == null) GlyphButton("🔍", "Buscar", onSearch, size = HeaderButton, tint = dim)
-            if (paneToggle != null) GlyphButton(paneToggle.glyph, paneToggle.label, paneToggle.onClick, size = HeaderButton, tint = dim)
-            OverflowMenu(settings, onSort, onToggleGrid, onToggleHidden, onSetStart, onTrash, onNewFolder, onSelectAll)
+            if (searchField == null) GlyphButton(Ico.search, "Buscar", onSearch, size = HeaderButton, tint = dim)
+            if (paneToggle != null) GlyphButton(paneToggle.icon, paneToggle.label, paneToggle.onClick, size = HeaderButton, tint = dim)
+            OverflowMenu(settings, onSort, onToggleGrid, onToggleHidden, onSetStart, onTrash, onNewFolder, onSelectAll, onToggleSplit)
         }
         Box(
             Modifier.fillMaxWidth().heightIn(min = 36.dp).padding(start = 6.dp, end = 8.dp, bottom = 4.dp),
@@ -119,7 +127,7 @@ fun PaneHeader(
 }
 
 /** Botón de la cabecera para abrir el segundo panel (◫) o cerrar este (✕). */
-class PaneToggle(val glyph: String, val label: String, val onClick: () -> Unit)
+class PaneToggle(val icon: Int, val label: String, val onClick: () -> Unit)
 
 private val HeaderButton = 40.dp
 
@@ -133,14 +141,16 @@ private fun OverflowMenu(
     onTrash: () -> Unit,
     onNewFolder: () -> Unit,
     onSelectAll: () -> Unit,
+    onToggleSplit: () -> Unit,
 ) {
     Box {
         var open by remember { mutableStateOf(false) }
-        GlyphButton("⋮", "Menú", { open = true }, size = HeaderButton)
+        GlyphButton(Ico.more, "Menú", { open = true }, size = HeaderButton)
         DropdownMenu(open, { open = false }) {
             val item: @Composable (String, Boolean, () -> Unit) -> Unit = { text, checked, action ->
                 DropdownMenuItem(
-                    text = { Text((if (checked) "✓  " else "     ") + text) },
+                    text = { Text(text) },
+                    leadingIcon = { if (checked) MonoIcon(Ico.check, Tone.Accent, 20.dp) else Spacer(Modifier.size(20.dp)) },
                     onClick = { open = false; action() },
                 )
             }
@@ -156,6 +166,7 @@ private fun OverflowMenu(
             HorizontalDivider(color = Tone.Line)
             item("Cuadrícula", settings.gridView, onToggleGrid)
             item("Mostrar ocultos", settings.showHidden, onToggleHidden)
+            item("Ajustar tamaño de paneles", settings.splitAdjustable, onToggleSplit)
             HorizontalDivider(color = Tone.Line)
             item("Abrir aquí al iniciar", false, onSetStart)
             item("Papelera", false, onTrash)
