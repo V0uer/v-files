@@ -43,6 +43,9 @@ enum class Action(val label: String) {
     PROPERTIES("Propiedades"),
     NEW_FOLDER("Nueva carpeta"),
     SELECT_ALL("Seleccionar todo"),
+    EXTRACT("Extraer"),
+    EXTRACT_TO_OTHER("Extraer al otro panel"),
+    COMPRESS("Comprimir"),
 }
 
 /** Lo que se copió o cortó con un solo panel, en espera de "Pegar". */
@@ -70,15 +73,25 @@ class BrowserState(val left: PaneState, val right: PaneState, dual: Boolean = fa
         if (left || _dual.value) _activeIsLeft.value = left
     }
 
-    fun actionsFor(selectionCount: Int, dual: Boolean): List<Action> {
+    /**
+     * [inArchive]: el panel está dentro de un zip (solo se puede extraer). [zipsOnly]: todo lo
+     * seleccionado son zips, que se pueden extraer.
+     */
+    fun actionsFor(selectionCount: Int, dual: Boolean, inArchive: Boolean = false, zipsOnly: Boolean = false): List<Action> {
+        if (inArchive) return buildList {
+            if (selectionCount > 0) { add(Action.EXTRACT); if (dual) add(Action.EXTRACT_TO_OTHER) }
+            add(Action.SELECT_ALL)
+        }
         if (selectionCount == 0) return listOf(Action.NEW_FOLDER, Action.PASTE, Action.SELECT_ALL)
         return buildList {
+            if (zipsOnly) { add(Action.EXTRACT); if (dual) add(Action.EXTRACT_TO_OTHER) }
             if (dual) { add(Action.COPY_TO_OTHER); add(Action.MOVE_TO_OTHER) }
             add(Action.COPY); add(Action.CUT)
             if (selectionCount == 1) { add(Action.FAVORITE); add(Action.RENAME) }
             add(Action.TRASH)
             add(Action.SHARE)
             if (selectionCount == 1) add(Action.OPEN_WITH)
+            add(Action.COMPRESS)
             add(Action.PROPERTIES)
             add(Action.SELECT_ALL)
             add(Action.DELETE)
@@ -86,7 +99,7 @@ class BrowserState(val left: PaneState, val right: PaneState, dual: Boolean = fa
     }
 }
 
-private val Secondary = setOf(Action.SHARE, Action.OPEN_WITH, Action.PROPERTIES, Action.SELECT_ALL, Action.DELETE)
+private val Secondary = setOf(Action.SHARE, Action.OPEN_WITH, Action.COMPRESS, Action.PROPERTIES, Action.SELECT_ALL, Action.DELETE)
 
 /** Tira inferior con las acciones principales; "Más" abre el menú con todas. */
 @Composable
@@ -115,7 +128,7 @@ fun ActionBar(
         )
         val primary = actions.filter { a ->
             a !in Secondary && !(dual && (a == Action.COPY || a == Action.CUT)) && !(a == Action.PASTE && clip == null)
-        }.sortedBy { if (it == Action.FAVORITE) 0 else 1 }
+        }.sortedBy { when (it) { Action.EXTRACT -> 0; Action.FAVORITE -> 1; else -> 2 } }
         LazyRow(
             Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,

@@ -56,6 +56,29 @@ class BrowserLogicTest {
         assertFalse(Action.FAVORITE in b.actionsFor(0, dual = false))
     }
 
+    @Test fun dentro_de_un_zip_solo_se_extrae_o_se_selecciona() = runTest {
+        val b = browser()
+        assertEquals(listOf(Action.EXTRACT, Action.SELECT_ALL), b.actionsFor(2, dual = false, inArchive = true))
+        assertEquals(listOf(Action.EXTRACT, Action.EXTRACT_TO_OTHER, Action.SELECT_ALL), b.actionsFor(1, dual = true, inArchive = true))
+        assertEquals(listOf(Action.SELECT_ALL), b.actionsFor(0, dual = true, inArchive = true))
+    }
+
+    @Test fun zips_seleccionados_ofrecen_extraer() = runTest {
+        val b = browser()
+        val a = b.actionsFor(2, dual = true, zipsOnly = true)
+        assertTrue(a.containsAll(listOf(Action.EXTRACT, Action.EXTRACT_TO_OTHER)))
+        assertFalse(Action.EXTRACT_TO_OTHER in b.actionsFor(1, dual = false, zipsOnly = true))
+        assertFalse(Action.EXTRACT in b.actionsFor(1, dual = true))
+    }
+
+    @Test fun comprimir_con_cualquier_seleccion_fuera_de_un_zip() = runTest {
+        val b = browser()
+        assertTrue(Action.COMPRESS in b.actionsFor(1, dual = false))
+        assertTrue(Action.COMPRESS in b.actionsFor(3, dual = true))
+        assertFalse(Action.COMPRESS in b.actionsFor(0, dual = false))
+        assertFalse(Action.COMPRESS in b.actionsFor(1, dual = false, inArchive = true))
+    }
+
     @Test fun toggleDual_conserva_la_ruta_del_panel_izquierdo() = runTest {
         val b = browser()
         runCurrent()

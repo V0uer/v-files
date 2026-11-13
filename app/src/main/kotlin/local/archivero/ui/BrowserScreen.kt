@@ -36,6 +36,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -67,6 +68,9 @@ import local.archivero.core.Lister
 import local.archivero.core.OpFailure
 import local.archivero.core.OpRequest
 import local.archivero.core.OpStatus
+import local.archivero.core.Names
+import local.archivero.core.Zip
+import local.archivero.core.ZipLocation
 import local.archivero.data.Favorite
 import local.archivero.data.Settings
 import local.archivero.data.moveItem
@@ -88,6 +92,7 @@ private sealed interface Ask {
     data class NewFolder(val dir: Path) : Ask
     data class Delete(val targets: List<Path>) : Ask
     data class Props(val targets: List<Path>) : Ask
+    data class Compress(val sources: List<Path>, val dir: Path, val suggested: String) : Ask
 }
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -111,6 +116,9 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
     val active = if (activeIsLeft || !dual) browser.left else browser.right
     val canBack by active.canGoBack.collectAsStateWithLifecycle()
     val selection by active.selection.collectAsStateWithLifecycle()
+    val path by active.path.collectAsStateWithLifecycle()
+    /** Si el panel activo está dentro de un zip, cuál (null: carpeta normal). */
+    val activeZip by produceState<ZipLocation?>(null, path) { value = withContext(Dispatchers.IO) { zipAt(path) } }
     val clip by browser.clipboard.collectAsStateWithLifecycle()
     val volumes by app.volumes.volumes.collectAsStateWithLifecycle()
 
@@ -161,7 +169,11 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
     }
     // Al abrir, se limpia de la papelera lo que ya cumplió su plazo.
     LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) { app.volumes.volumes.value.forEach { v -> runCatching { app.trash.purgeExpired(v.root) } } }
+        withContext(Dispatchers.IO) {
+            app.volumes.volumes.value.forEach { v -> runCatching { app.trash.purgeExpired(v.root) } }
+            // Lo extraído para abrir en la sesión anterior ya no hace falta.
+            runCatching { context.cacheDir.resolve(OPENED_DIR).deleteRecursively() }
+        }
     }
 
     // El permiso de notificaciones se pide la primera vez que se encola algo; si se niega, la operación corre igual.
@@ -198,14 +210,61 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
     }
 
     val openFile: (FileEntry) -> Unit = { e ->
-        if (!Opener.open(context, e.path, chooser = false)) say("No hay app para abrir este archivo")
+        if (!e.inArchive) {
+            if (!Opener.open(context, e.path, chooser = false)) say("No hay app para abrir este archivo")
+        } else scope.launch {
+            // Lo de adentro de un zip se extrae a la caché de la app y se abre desde ahí.
+            val out = withContext(Dispatchers.IO) {
+                runCatching {
+                    val loc = Zip.locate(e.path) ?: throw OpFailure(OpFailure.Kind.SOURCE_GONE, e.path)
+                    val dir = context.cacheDir.toPath().resolve(OPENED_DIR).resolve(Integer.toHexString(e.path.toString().hashCode()))
+                    Zip.extractOne(loc.zip, loc.inner, dir.resolve(e.name))
+                }
+            }
+            out.fold(
+                onSuccess = { p -> if (!Opener.open(context, p, chooser = false)) say("No hay app para abrir este archivo") },
+                onFailure = { err -> say(Fmt.failure((err as? OpFailure)?.kind ?: OpFailure.Kind.IO)) },
+            )
+        }
+    }
+
+    /**
+     * Extrae lo seleccionado en [destBase]. Dentro de un zip, cada elemento sale tal cual;
+     * zips seleccionados desde fuera se extraen cada uno a una carpeta con su nombre.
+     */
+    val extractTo: (PaneState, List<Path>, Path) -> Unit = { pane, picked, destBase ->
+        val loc = zipAt(pane.path.value)
+        when {
+            picked.isEmpty() -> Unit
+            zipAt(destBase) != null -> say(ZIP_READ_ONLY)
+            loc != null -> {
+                val inners = picked.map { p -> p.fileName.toString().let { n -> if (loc.inner.isEmpty()) n else "${loc.inner}/$n" } }
+                enqueue(OpRequest.Extract(loc.zip, inners, destBase)); pane.clearSelection()
+            }
+            else -> {
+                for (zip in picked) {
+                    val stem = zip.fileName.toString().dropLast(4).ifEmpty { "zip" }
+                    val folder = if (Names.existsIgnoreCase(destBase, stem) != null) Names.keepBoth(destBase, stem) else stem
+                    enqueue(OpRequest.Extract(zip, listOf(""), destBase.resolve(folder)))
+                }
+                pane.clearSelection()
+            }
+        }
     }
 
     val perform: (Action) -> Unit = { action ->
         val pane = browser.active
         val picked = pane.selectedInOrder()
         val here = pane.path.value
-        when (action) {
+        val otherPath = browser.other.path.value
+        // Lo que escribiría dentro de un zip no se hace: son de solo lectura.
+        val writesTo = when (action) {
+            Action.COPY_TO_OTHER, Action.MOVE_TO_OTHER -> otherPath
+            Action.PASTE, Action.NEW_FOLDER -> here
+            else -> null
+        }
+        if (writesTo != null && zipAt(writesTo) != null) say(ZIP_READ_ONLY)
+        else when (action) {
             Action.COPY_TO_OTHER -> if (picked.isNotEmpty()) {
                 enqueue(OpRequest.Copy(picked, browser.other.path.value)); pane.clearSelection()
             }
@@ -244,6 +303,16 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
             Action.PROPERTIES -> if (picked.isNotEmpty()) ask = Ask.Props(picked)
             Action.NEW_FOLDER -> ask = Ask.NewFolder(here)
             Action.SELECT_ALL -> pane.selectAll()
+            Action.EXTRACT -> extractTo(pane, picked, zipAt(here)?.zip?.parent ?: here)
+            Action.EXTRACT_TO_OTHER -> extractTo(pane, picked, otherPath)
+            Action.COMPRESS -> if (picked.isNotEmpty()) {
+                val first = picked[0]
+                val base = if (picked.size == 1) {
+                    first.fileName.toString().let { n -> if (Files.isDirectory(first)) n else n.substringBeforeLast('.', n) }
+                } else here.fileName?.toString() ?: "Archivos"
+                val name = "$base.zip".let { if (Names.existsIgnoreCase(here, it) != null) Names.keepBoth(here, it) else it }
+                ask = Ask.Compress(picked, here, name)
+            }
         }
     }
 
@@ -297,7 +366,9 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
 
     // "Favorito" solo se ofrece cuando lo seleccionado es una carpeta.
     val folderPicked = remember(selection) { selection.singleOrNull()?.let { Files.isDirectory(it) } == true }
-    val actions = browser.actionsFor(selection.size, dual).filter { it != Action.FAVORITE || folderPicked }
+    val zipsPicked = remember(selection) { selection.isNotEmpty() && selection.all { Zip.isZipName(it.fileName.toString()) } }
+    val actions = browser.actionsFor(selection.size, dual, inArchive = activeZip != null, zipsOnly = zipsPicked && activeZip == null)
+        .filter { it != Action.FAVORITE || folderPicked }
 
     /** Un panel completo: su cabecera, su lista (o búsqueda) y sus favoritos encima al pedirlos. */
     val paneSlot: @Composable (PaneState, Modifier) -> Unit = { pane, modifier ->
@@ -468,6 +539,16 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
             onConfirm = { ask = null; enqueue(OpRequest.Delete(a.targets)); browser.active.clearSelection() },
         )
         is Ask.Props -> PropertiesDialog(a.targets, app.fileOps) { ask = null }
+        is Ask.Compress -> NameDialog(
+            "Comprimir", a.suggested, "Comprimir", selectStem = true,
+            onDismiss = { ask = null },
+            onConfirm = { typed ->
+                ask = null
+                val name = if (Zip.isZipName(typed)) typed else "$typed.zip"
+                if (Names.existsIgnoreCase(a.dir, name) != null) say("Ya existe algo con ese nombre")
+                else { enqueue(OpRequest.Compress(a.sources, a.dir.resolve(name))); browser.active.clearSelection() }
+            },
+        )
     }
 }
 
@@ -486,3 +567,9 @@ private fun Drawer(open: Boolean, onClose: () -> Unit, content: @Composable () -
         }
     }
 }
+
+private const val OPENED_DIR = "abiertos"
+private const val ZIP_READ_ONLY = "Un zip es de solo lectura: extrae primero lo que necesites"
+
+/** Dónde está [p] dentro de un zip, o null si es una carpeta normal. Toca el disco: usar poco. */
+private fun zipAt(p: Path): ZipLocation? = if (Files.isDirectory(p)) null else Zip.locate(p)

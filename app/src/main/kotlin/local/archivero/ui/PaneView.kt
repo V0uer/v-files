@@ -52,6 +52,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import local.archivero.core.EntryKind
 import local.archivero.core.FileEntry
+import local.archivero.core.Zip
 import local.archivero.core.ListError
 import local.archivero.core.OpFailure
 import java.nio.file.Path
@@ -81,6 +82,7 @@ object Fmt {
         OpFailure.Kind.SOURCE_GONE -> "El archivo de origen ya no está"
         OpFailure.Kind.INTO_ITSELF -> "No se puede copiar una carpeta dentro de sí misma"
         OpFailure.Kind.ALREADY_EXISTS -> "Ya existe algo con ese nombre"
+        OpFailure.Kind.BAD_ARCHIVE -> "El zip está dañado o tiene contraseña"
         OpFailure.Kind.IO -> "Falló la lectura o la escritura"
     }
 
@@ -88,6 +90,7 @@ object Fmt {
         ListError.NOT_FOUND -> "Esta carpeta ya no existe"
         ListError.NO_ACCESS -> "Android no deja entrar a esta carpeta"
         ListError.NOT_A_DIRECTORY -> "Esto no es una carpeta"
+        ListError.BAD_ARCHIVE -> "No se pudo abrir el zip: está dañado o tiene contraseña"
         ListError.IO -> "No se pudo leer la carpeta"
     }
 }
@@ -170,7 +173,8 @@ private fun Entries(
         onActivate()
         when {
             state.selection.value.isNotEmpty() -> state.toggleSelect(e.path)
-            e.isDirectory -> state.navigate(e.path)
+            // Un zip se abre como carpeta (uno dentro de otro zip se abre extrayéndolo).
+            e.isDirectory || (!e.inArchive && Zip.isZipName(e.name)) -> state.navigate(e.path)
             else -> onOpenFile(e)
         }
     }
@@ -269,7 +273,7 @@ private fun EntryCell(
 /** Icono por tipo; las imágenes llevan miniatura, decodificada a tamaño fijo. */
 @Composable
 fun EntryIcon(e: FileEntry, size: Dp) {
-    if (e.kind == EntryKind.IMAGE) {
+    if (e.kind == EntryKind.IMAGE && !e.inArchive) {
         val context = LocalContext.current
         val request = remember(e.path, e.modifiedMillis) {
             ImageRequest.Builder(context).data(e.path.toFile()).size(160).build()

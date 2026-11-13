@@ -33,6 +33,8 @@ object OpText {
         is OpRequest.Move -> r.sources
         is OpRequest.ToTrash -> r.targets
         is OpRequest.Delete -> r.targets
+        is OpRequest.Extract -> listOf(r.zip)
+        is OpRequest.Compress -> listOf(r.destZip)
     }
 
     fun verb(r: OpRequest): String = when (r) {
@@ -40,18 +42,24 @@ object OpText {
         is OpRequest.Move -> "Moviendo"
         is OpRequest.ToTrash -> "Enviando a la papelera"
         is OpRequest.Delete -> "Borrando"
+        is OpRequest.Extract -> "Extrayendo"
+        is OpRequest.Compress -> "Comprimiendo"
     }
 
     fun infinitive(r: OpRequest): String = when (r) {
         is OpRequest.Copy -> "copiar"
         is OpRequest.Move -> "mover"
         is OpRequest.ToTrash, is OpRequest.Delete -> "borrar"
+        is OpRequest.Extract -> "extraer"
+        is OpRequest.Compress -> "comprimir"
     }
 
     fun done(r: OpRequest): String = when (r) {
         is OpRequest.Copy -> "Copia terminada"
         is OpRequest.Move -> "Movimiento terminado"
         is OpRequest.ToTrash, is OpRequest.Delete -> "Borrado terminado"
+        is OpRequest.Extract -> "Extracción terminada"
+        is OpRequest.Compress -> "Zip creado"
     }
 
     fun subject(r: OpRequest): String {
