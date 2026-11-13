@@ -12,6 +12,8 @@ data class FileEntry(
     val modifiedMillis: Long,
     val isHidden: Boolean,
     val kind: EntryKind,
+    /** Está dentro de un zip: no existe en disco, se abre extrayéndolo. */
+    val inArchive: Boolean = false,
 )
 
 enum class SortKey { NAME, DATE, SIZE, TYPE }
@@ -23,4 +25,4 @@ sealed interface ListResult {
     data class Error(val reason: ListError) : ListResult
 }
 
-enum class ListError { NOT_FOUND, NO_ACCESS, NOT_A_DIRECTORY, IO }
+enum class ListError { NOT_FOUND, NO_ACCESS, NOT_A_DIRECTORY, BAD_ARCHIVE, IO }

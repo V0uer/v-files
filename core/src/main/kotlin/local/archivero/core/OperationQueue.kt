@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
@@ -22,6 +23,9 @@ sealed interface OpRequest {
     data class Move(val sources: List<Path>, val destDir: Path) : OpRequest
     data class ToTrash(val targets: List<Path>) : OpRequest
     data class Delete(val targets: List<Path>) : OpRequest
+    /** Extrae de [zip] las rutas internas [inners] ("" = todo) en [destDir]. */
+    data class Extract(val zip: Path, val inners: List<String>, val destDir: Path) : OpRequest
+    data class Compress(val sources: List<Path>, val destZip: Path) : OpRequest
 }
 
 enum class OpStatus { QUEUED, RUNNING, WAITING_CONFLICT, DONE, CANCELLED, FAILED }
@@ -131,6 +135,12 @@ class OperationQueue(
                     onProgress(Progress(request.targets.size, request.targets.size, 0, 0, ""))
                 }
                 is OpRequest.Delete -> ops.deletePermanently(request.targets, onProgress)
+                is OpRequest.Extract -> {
+                    // Extraer un zip "entero" en una carpeta nueva: se crea aquí, con el nombre libre.
+                    Files.createDirectories(request.destDir)
+                    Zip.extract(request.zip, request.inners, request.destDir, onConflict, onProgress)
+                }
+                is OpRequest.Compress -> Zip.compress(request.sources, request.destZip, onProgress)
             }
             ({ copy(status = OpStatus.DONE) })
         } catch (e: CancellationException) {

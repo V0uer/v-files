@@ -40,6 +40,10 @@ object Lister {
 
     /** Bloqueante: llamar desde un hilo de E/S. */
     fun list(dir: Path, showHidden: Boolean, sort: SortSpec): ListResult {
+        // Un zip, o una carpeta dentro de uno, se lista por dentro.
+        if (!Files.exists(dir) || (Zip.isZipName(dir.fileName?.toString().orEmpty()) && Files.isRegularFile(dir))) {
+            Zip.locate(dir)?.let { return Zip.list(it, showHidden, sort) }
+        }
         val out = ArrayList<FileEntry>()
         try {
             if (!Files.exists(dir)) return ListResult.Error(ListError.NOT_FOUND)

@@ -26,7 +26,7 @@ data class Progress(
 
 class OpFailure(val kind: Kind, val path: Path, cause: Throwable? = null) :
     Exception("$kind: $path", cause) {
-    enum class Kind { NO_SPACE, NO_ACCESS, SOURCE_GONE, INTO_ITSELF, FILE_TOO_LARGE, ALREADY_EXISTS, IO }
+    enum class Kind { NO_SPACE, NO_ACCESS, SOURCE_GONE, INTO_ITSELF, FILE_TOO_LARGE, ALREADY_EXISTS, BAD_ARCHIVE, IO }
 
     companion object {
         fun from(e: IOException, path: Path): OpFailure {
