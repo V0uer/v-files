@@ -1,8 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Carpeta de Fluent UI System Icons (MIT, Microsoft): folder_24_filled: pestaña roja
+     #d93327, frente azul #46c2e8 en degradado, sobre fondo carbón #24262b (@color/launcher_bg). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#FF2563EB"
-        android:pathData="M36,38h13l6,6h17a4,4 0,0 1,4 4v4H32v-10a4,4 0,0 1,4 -4z" />
-    <path android:fillColor="#FF3B82F6"
-        android:pathData="M32,50h44v18a4,4 0,0 1,-4 4H36a4,4 0,0 1,-4 -4z" />
+    <group android:scaleX="2.45" android:scaleY="2.45" android:translateX="24.6" android:translateY="25.6">
+        <path android:fillColor="#FFD93327"
+            android:pathData="M2 8V6.25C2 4.45507 3.45507 3 5.25 3H8.12868C8.72542 3 9.29771 3.23705 9.71967 3.65901L11.25 5.18934L8.65901 7.78033C8.51836 7.92098 8.32759 8 8.12868 8H2Z" />
+        <path android:pathData="M2 9.5V17.75C2 19.5449 3.45507 21 5.25 21H18.75C20.5449 21 22 19.5449 22 17.75V8.75C22 6.95507 20.5449 5.5 18.75 5.5H13.0607L9.71967 8.84099C9.29771 9.26295 8.72542 9.5 8.12868 9.5H2Z">
+            <aapt:attr name="android:fillColor">
+                <gradient android:type="linear" android:startX="12" android:startY="5" android:endX="12" android:endY="21">
+                    <item android:offset="0" android:color="#FF5FCDEE" />
+                    <item android:offset="1" android:color="#FF36B3DC" />
+                </gradient>
+            </aapt:attr>
+        </path>
+    </group>
 </vector>
