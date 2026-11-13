@@ -31,8 +31,6 @@ data class Settings(
     val splitAdjustable: Boolean = true,
     /** Fracción que ocupa el primer panel (0.5 = mitad y mitad). */
     val split: Float = 0.5f,
-    /** Imán: al arrastrar cerca de la mitad, la división se pega ahí. */
-    val splitSnap: Boolean = false,
 )
 
 object PrefsCodec {
@@ -100,7 +98,6 @@ class Prefs(private val context: Context) {
         val second = stringPreferencesKey("second_path")
         val splitAdjustable = booleanPreferencesKey("split_adjustable")
         val split = floatPreferencesKey("split")
-        val splitSnap = booleanPreferencesKey("split_snap")
         val quickAccess = booleanPreferencesKey("quick_access_v1")
     }
 
@@ -143,7 +140,6 @@ class Prefs(private val context: Context) {
         secondPanePath = p[K.second],
         splitAdjustable = p[K.splitAdjustable] ?: true,
         split = p[K.split] ?: 0.5f,
-        splitSnap = p[K.splitSnap] ?: false,
     )
 
     suspend fun update(transform: (Settings) -> Settings) {
@@ -159,7 +155,6 @@ class Prefs(private val context: Context) {
             if (s.secondPanePath != null) p[K.second] = s.secondPanePath else p.remove(K.second)
             p[K.splitAdjustable] = s.splitAdjustable
             p[K.split] = s.split
-            p[K.splitSnap] = s.splitSnap
             p[K.quickAccess] = true
         }
     }

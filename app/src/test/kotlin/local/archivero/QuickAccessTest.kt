@@ -34,10 +34,9 @@ class QuickAccessTest {
         assertEquals(null, QuickAccess.knownOf("$root/ROMs", root))
     }
 
-    @Test fun el_iman_pega_la_division_a_la_mitad_solo_si_esta_activo() {
-        assertEquals(0.5f, Split.snap(0.53f, enabled = true), 0.0001f)
-        assertEquals(0.5f, Split.snap(0.465f, enabled = true), 0.0001f)
-        assertEquals(0.53f, Split.snap(0.53f, enabled = false), 0.0001f)
-        assertEquals(0.58f, Split.snap(0.58f, enabled = true), 0.0001f)
+    @Test fun el_iman_siempre_pega_la_division_a_la_mitad_cuando_queda_cerca() {
+        assertEquals(0.5f, Split.snap(0.53f), 0.0001f)
+        assertEquals(0.5f, Split.snap(0.465f), 0.0001f)
+        assertEquals(0.58f, Split.snap(0.58f), 0.0001f)
     }
 }

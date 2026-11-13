@@ -5,12 +5,7 @@ import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -45,9 +40,9 @@ object Split {
         return clamp(fraction + if (towardFirst) STEP else -STEP)
     }
 
-    /** Con el imán prendido, lo que queda cerca de la mitad se pega a la mitad. */
-    fun snap(fraction: Float, enabled: Boolean): Float =
-        if (enabled && kotlin.math.abs(fraction - EVEN) < SNAP) EVEN else fraction
+    /** Imán: lo que queda cerca de la mitad se pega a la mitad. */
+    fun snap(fraction: Float): Float =
+        if (kotlin.math.abs(fraction - EVEN) < SNAP) EVEN else fraction
 
     /** Arrastrar la división [deltaPx] sobre un largo total de [totalPx]. */
     fun drag(fraction: Float, deltaPx: Float, totalPx: Float): Float =
@@ -56,18 +51,15 @@ object Split {
 
 /**
  * División entre los paneles. Con [adjustable] es una franja que se arrastra (doble toque
- * la vuelve a la mitad) con un candado en medio que prende o apaga el imán ([snap]);
- * si no, una línea fina. [sideBySide]: paneles lado a lado.
+ * la vuelve a la mitad); si no, una línea fina. [sideBySide]: paneles lado a lado.
  */
 @Composable
 fun SplitHandle(
     sideBySide: Boolean,
     adjustable: Boolean,
-    snap: Boolean,
     onDrag: (deltaPx: Float) -> Unit,
     onDragStopped: () -> Unit,
     onReset: () -> Unit,
-    onToggleSnap: () -> Unit,
 ) {
     val line = if (sideBySide) Modifier.width(1.dp).fillMaxHeight() else Modifier.height(1.dp).fillMaxWidth()
     if (!adjustable) {
@@ -87,27 +79,9 @@ fun SplitHandle(
         contentAlignment = Alignment.Center,
     ) {
         Box(line.background(Tone.Line))
-        val grip: @Composable () -> Unit = {
-            Box(
-                (if (sideBySide) Modifier.size(5.dp, 28.dp) else Modifier.size(28.dp, 5.dp))
-                    .clip(RoundedCornerShape(50)).background(Tone.Muted),
-            )
-        }
-        val lock: @Composable () -> Unit = {
-            Box(
-                Modifier.size(22.dp).clip(CircleShape).background(if (snap) Tone.Accent else Tone.SurfaceHigh)
-                    .clickable(onClickLabel = if (snap) "Apagar el imán a la mitad" else "Prender el imán a la mitad", onClick = onToggleSnap),
-                contentAlignment = Alignment.Center,
-            ) { MonoIcon(if (snap) Ico.lock else Ico.unlock, Tone.Text, 14.dp) }
-        }
-        if (sideBySide) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                grip(); Spacer(Modifier.height(8.dp)); lock(); Spacer(Modifier.height(8.dp)); grip()
-            }
-        } else {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                grip(); Spacer(Modifier.width(8.dp)); lock(); Spacer(Modifier.width(8.dp)); grip()
-            }
-        }
+        Box(
+            (if (sideBySide) Modifier.size(5.dp, 36.dp) else Modifier.size(36.dp, 5.dp))
+                .clip(RoundedCornerShape(50)).background(Tone.Muted),
+        )
     }
 }

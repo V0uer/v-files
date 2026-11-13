@@ -27,8 +27,6 @@ MONO = {
     'fl_drive': 'hard_drive_24_regular',
     'fl_delete': 'delete_24_regular',
     'fl_pin': 'pin_24_regular',
-    'fl_lock': 'lock_closed_24_regular',
-    'fl_unlock': 'lock_open_24_regular',
 }
 
 

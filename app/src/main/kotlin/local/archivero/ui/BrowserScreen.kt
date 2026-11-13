@@ -479,22 +479,16 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
                     SplitHandle(
                         sideBySide = !stacked,
                         adjustable = adjustable,
-                        snap = settings.splitSnap,
                         onDrag = { delta ->
                             if (!dragging) { dragging = true; rawSplit = split }
                             rawSplit = Split.drag(rawSplit, delta, totalPx)
-                            val next = Split.snap(rawSplit, settings.splitSnap)
+                            val next = Split.snap(rawSplit)
                             // Un toque leve al pegarse a la mitad, como un imán.
                             if (next == Split.EVEN && split != Split.EVEN) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             split = next
                         },
                         onDragStopped = { dragging = false; saveSplit() },
                         onReset = { split = Split.EVEN; saveSplit() },
-                        onToggleSnap = {
-                            val on = !settings.splitSnap
-                            update { it.copy(splitSnap = on) }
-                            say(if (on) "Imán a la mitad prendido" else "Imán a la mitad apagado")
-                        },
                     )
                 }
                 Column(Modifier.fillMaxSize()) {

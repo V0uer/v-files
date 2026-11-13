@@ -34,8 +34,6 @@ object Ico {
     val folder = R.drawable.fl_folder
     val document = R.drawable.fl_document
     val pin = R.drawable.fl_pin
-    val lock = R.drawable.fl_lock
-    val unlock = R.drawable.fl_unlock
 
     /** Icono de una carpeta de Acceso rápido: las típicas llevan el suyo, como en Windows. */
     fun forQuickAccess(known: QuickAccess.Known?): Int = when (known) {
