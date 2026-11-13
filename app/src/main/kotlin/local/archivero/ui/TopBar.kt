@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
@@ -67,9 +68,10 @@ fun ChipButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier,
 }
 
 /**
- * Cabecera de un panel: ☰ (favoritos sobre este panel), atrás, subir, migas tocables,
- * buscar, abrir/cerrar el segundo panel y menú. Si [searchField] no es null ocupa el
- * lugar de las migas. Con [showActive] (dos paneles) una raya arriba marca el activo.
+ * Cabecera de un panel en dos renglones: arriba los botones (☰ favoritos sobre este panel,
+ * atrás, subir, buscar, abrir/cerrar el segundo panel y menú) y abajo la ruta, para que se
+ * lea completa aunque el panel sea angosto. Si [searchField] no es null ocupa el lugar de
+ * la ruta. Con [showActive] (dos paneles) una raya arriba marca el activo.
  */
 @Composable
 fun PaneHeader(
@@ -96,19 +98,22 @@ fun PaneHeader(
 ) {
     Column(Modifier.fillMaxWidth().background(Tone.Surface)) {
         if (showActive) Box(Modifier.fillMaxWidth().height(2.dp).background(if (active) Tone.Accent else Tone.Line))
-        Row(Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            val dim = if (showActive && !active) Tone.Muted else Tone.Text
+        val dim = if (showActive && !active) Tone.Muted else Tone.Text
+        Row(Modifier.fillMaxWidth().height(44.dp).padding(horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically) {
             GlyphButton("☰", "Favoritos y almacenamiento", onMenu, size = HeaderButton, tint = dim)
             GlyphButton("←", "Atrás", onBack, enabled = canBack || searchField != null, size = HeaderButton, tint = dim)
-            if (searchField != null) {
-                Box(Modifier.weight(1f).padding(horizontal = 4.dp)) { searchField() }
-            } else {
-                GlyphButton("↑", "Subir una carpeta", onUp, enabled = canUp, size = HeaderButton, tint = dim)
-                Crumbs(crumbs, onCrumb, Modifier.weight(1f), dimmed = showActive && !active)
-                GlyphButton("🔍", "Buscar", onSearch, size = HeaderButton)
-            }
+            GlyphButton("↑", "Subir una carpeta", onUp, enabled = canUp && searchField == null, size = HeaderButton, tint = dim)
+            Spacer(Modifier.weight(1f))
+            if (searchField == null) GlyphButton("🔍", "Buscar", onSearch, size = HeaderButton, tint = dim)
             if (paneToggle != null) GlyphButton(paneToggle.glyph, paneToggle.label, paneToggle.onClick, size = HeaderButton, tint = dim)
             OverflowMenu(settings, onSort, onToggleGrid, onToggleHidden, onSetStart, onTrash, onNewFolder, onSelectAll)
+        }
+        Box(
+            Modifier.fillMaxWidth().heightIn(min = 36.dp).padding(start = 6.dp, end = 8.dp, bottom = 4.dp),
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            if (searchField != null) searchField()
+            else Crumbs(crumbs, onCrumb, Modifier.fillMaxWidth(), dimmed = showActive && !active)
         }
     }
 }

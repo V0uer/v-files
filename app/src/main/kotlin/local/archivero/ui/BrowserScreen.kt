@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
@@ -298,7 +299,7 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
         val activate by rememberUpdatedState { browser.setActive(left = pane === browser.left) }
         val searching = searchPane === pane
         BoxWithConstraints(
-            modifier.fillMaxHeight()
+            modifier.fillMaxHeight().clipToBounds()
                 .pointerInput(Unit) {
                     awaitEachGesture { awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial); activate() }
                 }
