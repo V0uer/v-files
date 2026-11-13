@@ -1,7 +1,6 @@
 package local.archivero.ui
 
 import android.view.KeyEvent
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -45,37 +44,36 @@ import java.nio.file.Path
 import java.nio.file.Paths
 
 /**
- * Panel izquierdo: favoritos y almacenamiento. Con [compact] muestra solo iconos;
- * el botón de arriba ([onToggle]) lo abre o lo encoge. Los favoritos se agregan desde
- * la lista (pulsación larga en una carpeta), no desde aquí.
+ * Favoritos y almacenamiento; sale encima de un panel con ☰ y el botón de arriba
+ * ([onClose]) lo cierra. Los favoritos se agregan desde la lista (pulsación larga en
+ * una carpeta), no desde aquí.
  * Pulsación larga (o X / Y en el control) sobre un favorito: quitar, subir, bajar.
  */
 @Composable
 fun Sidebar(
-    compact: Boolean,
     favorites: List<Favorite>,
     volumes: List<Volume>,
     currentPath: Path,
     onNavigate: (Path) -> Unit,
-    onToggle: (() -> Unit)?,
+    onClose: () -> Unit,
     onRemove: (Favorite) -> Unit,
     onMove: (from: Int, to: Int) -> Unit,
     modifier: Modifier = Modifier,
     firstItemFocus: FocusRequester? = null,
-    fullWidth: Dp = 220.dp,
+    width: Dp = 280.dp,
 ) {
     val here = currentPath.toString()
-    val width by animateDpAsState(if (compact) 48.dp else fullWidth, label = "ancho del panel")
+    val compact = false
     Column(
         modifier.width(width).fillMaxHeight().background(Tone.Sidebar)
             .verticalScroll(rememberScrollState()).padding(vertical = 6.dp),
     ) {
-        if (onToggle != null) Item(
-            glyph = "☰", title = if (compact) "Abrir panel" else "Encoger panel", subtitle = null, compact = compact,
-            current = false, dimmed = false, onClick = onToggle, onLongClick = null, muted = true,
+        Item(
+            glyph = "☰", title = "Cerrar panel", subtitle = null, compact = compact,
+            current = false, dimmed = false, onClick = onClose, onLongClick = null, muted = true,
         )
-        if (!compact) Header("Favoritos")
-        if (!compact && favorites.isEmpty()) Text(
+        Header("Favoritos")
+        if (favorites.isEmpty()) Text(
             "Deja presionada una carpeta y elige ★ Favorito", color = Tone.Muted, fontSize = 12.sp,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
         )
@@ -86,7 +84,7 @@ fun Sidebar(
             var menu by remember { mutableStateOf(false) }
             Box {
                 Item(
-                    glyph = if (compact) fav.label.take(1).uppercase().ifEmpty { "★" } else "★",
+                    glyph = "★",
                     title = fav.label, subtitle = null, compact = compact,
                     current = fav.path == here, dimmed = !exists,
                     onClick = { if (exists) onNavigate(Paths.get(fav.path)) else menu = true },
@@ -105,7 +103,7 @@ fun Sidebar(
             }
         }
         Spacer(Modifier.height(10.dp))
-        if (!compact) Header("Almacenamiento")
+        Header("Almacenamiento")
         volumes.forEachIndexed { i, v ->
             Item(
                 modifier = if (i == 0 && favorites.isEmpty() && firstItemFocus != null) Modifier.focusRequester(firstItemFocus) else Modifier,

@@ -32,6 +32,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import local.archivero.core.SortKey
@@ -45,10 +46,10 @@ private val Round = RoundedCornerShape(8.dp)
 @Composable
 fun GlyphButton(
     glyph: String, label: String, onClick: () -> Unit,
-    modifier: Modifier = Modifier, enabled: Boolean = true, tint: Color = Tone.Text,
+    modifier: Modifier = Modifier, enabled: Boolean = true, tint: Color = Tone.Text, size: Dp = 44.dp,
 ) {
     Box(
-        modifier.size(44.dp).clip(Round).focusRing(Round)
+        modifier.size(size).clip(Round).focusRing(Round)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
@@ -66,76 +67,56 @@ fun ChipButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier,
 }
 
 /**
- * Barra superior: atrás, subir, migas tocables, buscar, "2 paneles" y menú.
- * Si [searchField] no es null ocupa el lugar de las migas. Con [narrow] (celular en
- * vertical) va en dos renglones: botones arriba y la ruta completa abajo; [onMenu]
- * agrega el botón ☰ que abre favoritos y almacenamiento.
+ * Cabecera de un panel: ☰ (favoritos sobre este panel), atrás, subir, migas tocables,
+ * buscar, abrir/cerrar el segundo panel y menú. Si [searchField] no es null ocupa el
+ * lugar de las migas. Con [showActive] (dos paneles) una raya arriba marca el activo.
  */
 @Composable
-fun TopBar(
+fun PaneHeader(
     crumbs: List<Pair<String, Path>>,
     canBack: Boolean,
     canUp: Boolean,
+    active: Boolean,
+    showActive: Boolean,
     settings: Settings,
-    dual: Boolean,
+    onMenu: () -> Unit,
     onBack: () -> Unit,
     onUp: () -> Unit,
     onCrumb: (Path) -> Unit,
+    onSearch: () -> Unit,
     onSort: (SortSpec) -> Unit,
     onToggleGrid: () -> Unit,
     onToggleHidden: () -> Unit,
     onSetStart: () -> Unit,
-    onSearch: (() -> Unit)? = null,
-    onToggleDual: (() -> Unit)? = null,
-    onTrash: (() -> Unit)? = null,
-    onNewFolder: (() -> Unit)? = null,
-    onSelectAll: (() -> Unit)? = null,
+    onTrash: () -> Unit,
+    onNewFolder: () -> Unit,
+    onSelectAll: () -> Unit,
+    paneToggle: PaneToggle?,
     searchField: (@Composable () -> Unit)? = null,
-    narrow: Boolean = false,
-    onMenu: (() -> Unit)? = null,
 ) {
-    val menu: @Composable () -> Unit = {
-        OverflowMenu(settings, onSort, onToggleGrid, onToggleHidden, onSetStart, onTrash, onNewFolder, onSelectAll)
-    }
-    if (narrow) {
-        Column(Modifier.fillMaxWidth().background(Tone.Surface)) {
-            Row(Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (onMenu != null) GlyphButton("☰", "Favoritos y almacenamiento", onMenu)
-                GlyphButton("←", "Atrás", onBack, enabled = canBack || searchField != null)
-                if (searchField == null) GlyphButton("↑", "Subir una carpeta", onUp, enabled = canUp)
-                Spacer(Modifier.weight(1f))
-                if (searchField == null && onSearch != null) GlyphButton("🔍", "Buscar", onSearch)
-                if (onToggleDual != null) {
-                    GlyphButton("◫", if (dual) "Un panel" else "2 paneles", onToggleDual, tint = if (dual) Tone.Accent else Tone.Text)
-                }
-                menu()
+    Column(Modifier.fillMaxWidth().background(Tone.Surface)) {
+        if (showActive) Box(Modifier.fillMaxWidth().height(2.dp).background(if (active) Tone.Accent else Tone.Line))
+        Row(Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            val dim = if (showActive && !active) Tone.Muted else Tone.Text
+            GlyphButton("☰", "Favoritos y almacenamiento", onMenu, size = HeaderButton, tint = dim)
+            GlyphButton("←", "Atrás", onBack, enabled = canBack || searchField != null, size = HeaderButton, tint = dim)
+            if (searchField != null) {
+                Box(Modifier.weight(1f).padding(horizontal = 4.dp)) { searchField() }
+            } else {
+                GlyphButton("↑", "Subir una carpeta", onUp, enabled = canUp, size = HeaderButton, tint = dim)
+                Crumbs(crumbs, onCrumb, Modifier.weight(1f), dimmed = showActive && !active)
+                GlyphButton("🔍", "Buscar", onSearch, size = HeaderButton)
             }
-            Box(
-                Modifier.fillMaxWidth().height(44.dp).padding(start = 4.dp, end = 8.dp, bottom = 6.dp),
-                contentAlignment = Alignment.CenterStart,
-            ) {
-                if (searchField != null) searchField() else Crumbs(crumbs, onCrumb, Modifier.fillMaxWidth())
-            }
+            if (paneToggle != null) GlyphButton(paneToggle.glyph, paneToggle.label, paneToggle.onClick, size = HeaderButton, tint = dim)
+            OverflowMenu(settings, onSort, onToggleGrid, onToggleHidden, onSetStart, onTrash, onNewFolder, onSelectAll)
         }
-        return
-    }
-    Row(
-        Modifier.fillMaxWidth().height(52.dp).background(Tone.Surface).padding(horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (onMenu != null) GlyphButton("☰", "Favoritos y almacenamiento", onMenu)
-        GlyphButton("←", "Atrás", onBack, enabled = canBack || searchField != null)
-        if (searchField != null) {
-            Box(Modifier.weight(1f).padding(horizontal = 4.dp)) { searchField() }
-        } else {
-            GlyphButton("↑", "Subir una carpeta", onUp, enabled = canUp)
-            Crumbs(crumbs, onCrumb, Modifier.weight(1f))
-            if (onSearch != null) GlyphButton("🔍", "Buscar", onSearch)
-        }
-        if (onToggleDual != null) ChipButton("2 paneles", onToggleDual, Modifier.padding(horizontal = 4.dp), on = dual)
-        menu()
     }
 }
+
+/** Botón de la cabecera para abrir el segundo panel (◫) o cerrar este (✕). */
+class PaneToggle(val glyph: String, val label: String, val onClick: () -> Unit)
+
+private val HeaderButton = 40.dp
 
 @Composable
 private fun OverflowMenu(
@@ -144,13 +125,13 @@ private fun OverflowMenu(
     onToggleGrid: () -> Unit,
     onToggleHidden: () -> Unit,
     onSetStart: () -> Unit,
-    onTrash: (() -> Unit)?,
-    onNewFolder: (() -> Unit)?,
-    onSelectAll: (() -> Unit)?,
+    onTrash: () -> Unit,
+    onNewFolder: () -> Unit,
+    onSelectAll: () -> Unit,
 ) {
     Box {
         var open by remember { mutableStateOf(false) }
-        GlyphButton("⋮", "Menú", { open = true })
+        GlyphButton("⋮", "Menú", { open = true }, size = HeaderButton)
         DropdownMenu(open, { open = false }) {
             val item: @Composable (String, Boolean, () -> Unit) -> Unit = { text, checked, action ->
                 DropdownMenuItem(
@@ -158,9 +139,9 @@ private fun OverflowMenu(
                     onClick = { open = false; action() },
                 )
             }
-            if (onNewFolder != null) item("Nueva carpeta", false, onNewFolder)
-            if (onSelectAll != null) item("Seleccionar todo", false, onSelectAll)
-            if (onNewFolder != null || onSelectAll != null) HorizontalDivider(color = Tone.Line)
+            item("Nueva carpeta", false, onNewFolder)
+            item("Seleccionar todo", false, onSelectAll)
+            HorizontalDivider(color = Tone.Line)
             val sort = settings.sort
             item("Por nombre", sort.key == SortKey.NAME) { onSort(sort.copy(key = SortKey.NAME)) }
             item("Por fecha", sort.key == SortKey.DATE) { onSort(sort.copy(key = SortKey.DATE)) }
@@ -172,13 +153,13 @@ private fun OverflowMenu(
             item("Mostrar ocultos", settings.showHidden, onToggleHidden)
             HorizontalDivider(color = Tone.Line)
             item("Abrir aquí al iniciar", false, onSetStart)
-            if (onTrash != null) item("Papelera", false, onTrash)
+            item("Papelera", false, onTrash)
         }
     }
 }
 
 @Composable
-private fun Crumbs(crumbs: List<Pair<String, Path>>, onCrumb: (Path) -> Unit, modifier: Modifier) {
+private fun Crumbs(crumbs: List<Pair<String, Path>>, onCrumb: (Path) -> Unit, modifier: Modifier, dimmed: Boolean = false) {
     val state = rememberLazyListState()
     LaunchedEffect(crumbs) { if (crumbs.isNotEmpty()) state.scrollToItem(crumbs.lastIndex) }
     LazyRow(modifier.padding(horizontal = 4.dp), state = state, verticalAlignment = Alignment.CenterVertically) {
@@ -187,7 +168,7 @@ private fun Crumbs(crumbs: List<Pair<String, Path>>, onCrumb: (Path) -> Unit, mo
             if (i > 0) Text("›", color = Tone.Muted, modifier = Modifier.padding(horizontal = 2.dp))
             Text(
                 label, maxLines = 1, fontSize = 14.sp,
-                color = if (last) Tone.Text else Tone.Muted,
+                color = if (last && !dimmed) Tone.Text else Tone.Muted,
                 fontWeight = if (last) FontWeight.SemiBold else FontWeight.Normal,
                 modifier = Modifier.clip(Round).focusRing(Round).clickable { onCrumb(target) }
                     .padding(horizontal = 6.dp, vertical = 8.dp),

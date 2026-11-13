@@ -25,7 +25,7 @@ Para cada punto, anotar `OK` o lo que falló.
 Estas partes se escribieron sin poder verlas correr, así que son las más probables de necesitar ajuste:
 
 - **Control físico.** Que el foco (borde azul) aparezca al tocar el control, que A abra, B regrese, X seleccione,
-  Y abra el menú, L1/R1 cambien de panel, Start alterne los dos paneles y Select lleve a favoritos.
+  Y abra el menú, L1/R1 cambien de panel, Start alterne los dos paneles y Select abra los favoritos sobre el panel activo (B los cierra).
   Dentro de diálogos y menús, que A acepte y B cierre.
 - **Palanca.** Un toque corto debe avanzar un solo renglón; sostenida, repetir.
 - **Tarjeta SD.** Que aparezca en "Almacenamiento" y que abrir y compartir archivos de la SD funcione.
@@ -43,4 +43,4 @@ Estas partes se escribieron sin poder verlas correr, así que son las más proba
 | Y | Menú de acciones |
 | L1 / R1 | Panel izquierdo / derecho |
 | Start | Uno o dos paneles |
-| Select | Ir a favoritos |
+| Select | Abrir o cerrar favoritos sobre el panel activo |

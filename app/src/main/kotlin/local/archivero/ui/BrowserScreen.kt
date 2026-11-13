@@ -15,9 +15,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
@@ -42,15 +40,16 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -89,6 +88,7 @@ private sealed interface Ask {
     data class Props(val targets: List<Path>) : Ask
 }
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun Browser(app: ArchiveroApp, settings: Settings) {
     val context = LocalContext.current
@@ -107,7 +107,6 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
     val dual by browser.dual.collectAsStateWithLifecycle()
     val activeIsLeft by browser.activeIsLeft.collectAsStateWithLifecycle()
     val active = if (activeIsLeft || !dual) browser.left else browser.right
-    val path by active.path.collectAsStateWithLifecycle()
     val canBack by active.canGoBack.collectAsStateWithLifecycle()
     val selection by active.selection.collectAsStateWithLifecycle()
     val clip by browser.clipboard.collectAsStateWithLifecycle()
@@ -117,11 +116,11 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
     var ask by remember { mutableStateOf<Ask?>(null) }
     var menuOpen by remember { mutableStateOf(false) }
     var showTrash by remember { mutableStateOf(false) }
-    /** Texto de la búsqueda en curso; null si no se está buscando. */
-    var search by remember { mutableStateOf<String?>(null) }
-    /** Celular en vertical: el panel izquierdo es un cajón que sale con ☰. */
-    var narrowLayout by remember { mutableStateOf(false) }
-    var drawerOpen by remember { mutableStateOf(false) }
+    /** Panel donde se está buscando (null: ninguno) y el texto de la búsqueda. */
+    var searchPane by remember { mutableStateOf<PaneState?>(null) }
+    var search by remember { mutableStateOf("") }
+    /** Panel sobre el que están abiertos los favoritos (null: cerrados). */
+    var drawerPane by remember { mutableStateOf<PaneState?>(null) }
     var drawerWantsFocus by remember { mutableStateOf(false) }
     val ops by app.queue.states.collectAsStateWithLifecycle()
     val say: (String) -> Unit = { text ->
@@ -171,11 +170,22 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
         app.enqueue(request)
     }
 
-    BackHandler(enabled = drawerOpen || selection.isNotEmpty() || search != null || canBack) {
+    val closeDrawer: () -> Unit = {
+        drawerPane?.let { pane -> drawerPane = null; pane.requestFocus() }
+    }
+    // Si se cierra el segundo panel, se cierra lo que tenía abierto encima.
+    LaunchedEffect(dual) {
+        if (!dual) {
+            if (searchPane === browser.right) searchPane = null
+            if (drawerPane === browser.right) drawerPane = null
+        }
+    }
+
+    BackHandler(enabled = drawerPane != null || selection.isNotEmpty() || searchPane != null || canBack) {
         when {
-            drawerOpen -> drawerOpen = false
+            drawerPane != null -> closeDrawer()
             active.selection.value.isNotEmpty() -> active.clearSelection()
-            search != null -> search = null
+            searchPane != null -> searchPane = null
             else -> active.back()
         }
     }
@@ -246,24 +256,25 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
     }
 
     // Control físico: X selecciona lo enfocado, Y abre el menú, L1/R1 cambian de panel,
-    // Start alterna los dos paneles y Select lleva el foco a favoritos.
+    // Start alterna los dos paneles y Select abre los favoritos sobre el panel activo.
     val sidebarFocus = remember { FocusRequester() }
     var sidebarFocused by remember { mutableStateOf(false) }
     DisposableEffect(browser) {
         PadBus.handler = handler@{ command ->
             if (showTrash || ask != null) return@handler false
+            val drawerFocused = drawerPane != null && sidebarFocused
             when (command) {
                 PadCommand.OPEN, PadCommand.BACK -> false
                 PadCommand.SELECT ->
-                    if (sidebarFocused || search != null) false
+                    if (drawerFocused || searchPane != null) false
                     else { browser.active.focused?.let { browser.active.toggleSelect(it) }; true }
-                PadCommand.MENU -> if (sidebarFocused) false else { menuOpen = true; true }
-                PadCommand.PREV_PANE -> { browser.setActive(left = true); browser.active.requestFocus(); true }
-                PadCommand.NEXT_PANE -> { browser.setActive(left = false); browser.active.requestFocus(); true }
-                PadCommand.TOGGLE_DUAL -> { browser.toggleDual(); browser.active.requestFocus(); true }
+                PadCommand.MENU -> if (drawerFocused) false else { menuOpen = true; true }
+                PadCommand.PREV_PANE -> { drawerPane = null; browser.setActive(left = true); browser.active.requestFocus(); true }
+                PadCommand.NEXT_PANE -> { drawerPane = null; browser.setActive(left = false); browser.active.requestFocus(); true }
+                PadCommand.TOGGLE_DUAL -> { drawerPane = null; browser.toggleDual(); browser.active.requestFocus(); true }
                 PadCommand.FAVORITES -> {
-                    if (narrowLayout) { drawerWantsFocus = true; drawerOpen = true }
-                    else runCatching { sidebarFocus.requestFocus() }
+                    if (drawerPane === browser.active) closeDrawer()
+                    else { drawerWantsFocus = true; drawerPane = browser.active }
                     true
                 }
             }
@@ -271,37 +282,97 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
         onDispose { PadBus.handler = null }
     }
 
-    // El panel izquierdo va abierto con un panel y encogido con dos; se abre solo cuando el control
-    // entra en él, y el botón ☰ lo fuerza a un lado u otro.
-    var sidebarOverride by remember(dual) { mutableStateOf<Boolean?>(null) }
-    val sidebarOpen = sidebarFocused || (sidebarOverride ?: !dual)
-
-
-    /** Favoritos y almacenamiento: riel a la izquierda en pantallas anchas, cajón en celular vertical. */
-    val sidebarView: @Composable (Boolean, Dp, (() -> Unit)?, Modifier, () -> Unit) -> Unit =
-        { compact, width, onToggle, mod, afterNavigate ->
-            Sidebar(
-                compact = compact,
-                favorites = settings.favorites,
-                volumes = volumes,
-                currentPath = path,
-                onNavigate = { active.navigate(it); afterNavigate() },
-                onToggle = onToggle,
-                onRemove = { fav -> update { s -> s.copy(favorites = s.favorites - fav) } },
-                onMove = { from, to -> update { s -> s.copy(favorites = moveItem(s.favorites, from, to)) } },
-                modifier = mod,
-                firstItemFocus = sidebarFocus,
-                fullWidth = width,
-            )
-        }
-
-    val volume = volumes.filter { path.startsWith(it.root) }.maxByOrNull { it.root.nameCount }
-    val crumbs = remember(path, volume) {
-        active.breadcrumbs(volume?.root ?: app.volumes.rootOf(path), volume?.label ?: "Interno")
-    }
     // "Favorito" solo se ofrece cuando lo seleccionado es una carpeta.
     val folderPicked = remember(selection) { selection.singleOrNull()?.let { Files.isDirectory(it) } == true }
     val actions = browser.actionsFor(selection.size, dual).filter { it != Action.FAVORITE || folderPicked }
+
+    /** Un panel completo: su cabecera, su lista (o búsqueda) y sus favoritos encima al pedirlos. */
+    val paneSlot: @Composable (PaneState, Modifier) -> Unit = { pane, modifier ->
+        val isActive = pane === active
+        val panePath by pane.path.collectAsStateWithLifecycle()
+        val paneBack by pane.canGoBack.collectAsStateWithLifecycle()
+        val paneVolume = volumes.filter { panePath.startsWith(it.root) }.maxByOrNull { it.root.nameCount }
+        val crumbs = remember(panePath, paneVolume) {
+            pane.breadcrumbs(paneVolume?.root ?: app.volumes.rootOf(panePath), paneVolume?.label ?: "Interno")
+        }
+        val activate by rememberUpdatedState { browser.setActive(left = pane === browser.left) }
+        val searching = searchPane === pane
+        BoxWithConstraints(
+            modifier.fillMaxHeight()
+                .pointerInput(Unit) {
+                    awaitEachGesture { awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial); activate() }
+                }
+                .onFocusChanged { if (it.hasFocus) activate() },
+        ) {
+            Column(Modifier.fillMaxSize()) {
+                PaneHeader(
+                    crumbs = crumbs,
+                    canBack = paneBack,
+                    canUp = remember(panePath, volumes) { pane.canGoUp() },
+                    active = isActive,
+                    showActive = dual,
+                    settings = settings,
+                    onMenu = { activate(); drawerPane = if (drawerPane === pane) null else pane },
+                    onBack = { if (searching) searchPane = null else pane.back() },
+                    onUp = { pane.up() },
+                    onCrumb = { pane.navigate(it) },
+                    onSearch = { activate(); search = ""; searchPane = pane },
+                    onSort = { sort -> update { it.copy(sort = sort) } },
+                    onToggleGrid = { update { it.copy(gridView = !it.gridView) } },
+                    onToggleHidden = { update { it.copy(showHidden = !it.showHidden) } },
+                    onSetStart = { val here = panePath.toString(); update { it.copy(startPath = here) }; say("Archivero abrirá aquí") },
+                    onTrash = { showTrash = true },
+                    onNewFolder = { activate(); perform(Action.NEW_FOLDER) },
+                    onSelectAll = { activate(); perform(Action.SELECT_ALL) },
+                    paneToggle = when {
+                        !dual -> PaneToggle("◫", "Abrir segundo panel") { browser.toggleDual() }
+                        pane === browser.right -> PaneToggle("✕", "Cerrar este panel") { browser.toggleDual() }
+                        else -> null
+                    },
+                    searchField = if (searching) {
+                        { SearchField(search, { search = it }, "Buscar en ${panePath.fileName ?: paneVolume?.label ?: panePath}") }
+                    } else null,
+                )
+                if (searching) {
+                    SearchView(
+                        root = panePath, query = search, showHidden = settings.showHidden,
+                        onPick = { e ->
+                            searchPane = null
+                            if (e.isDirectory) pane.navigate(e.path)
+                            else e.path.parent?.let { folder ->
+                                // Va a su carpeta y lo deja seleccionado y a la vista.
+                                pane.clearSelection()
+                                pane.navigate(folder, highlight = e.path)
+                                pane.toggleSelect(e.path)
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
+                } else {
+                    PaneView(pane, isActive, settings.gridView, openFile, Modifier.weight(1f)) { activate() }
+                }
+            }
+            Drawer(drawerPane === pane, onClose = closeDrawer) {
+                LaunchedEffect(Unit) {
+                    if (drawerWantsFocus) { drawerWantsFocus = false; runCatching { sidebarFocus.requestFocus() } }
+                }
+                Sidebar(
+                    favorites = settings.favorites,
+                    volumes = volumes,
+                    currentPath = panePath,
+                    onNavigate = { pane.navigate(it); closeDrawer() },
+                    onClose = closeDrawer,
+                    onRemove = { fav -> update { s -> s.copy(favorites = s.favorites - fav) } },
+                    onMove = { from, to -> update { s -> s.copy(favorites = moveItem(s.favorites, from, to)) } },
+                    // Con el control, el foco no se sale de los favoritos hasta cerrarlos.
+                    modifier = Modifier.onFocusChanged { sidebarFocused = it.hasFocus }
+                        .focusProperties { exit = { FocusRequester.Cancel } }.focusGroup(),
+                    firstItemFocus = sidebarFocus,
+                    width = minOf(maxWidth * 0.85f, 300.dp),
+                )
+            }
+        }
+    }
 
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
@@ -309,76 +380,20 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
                 TrashScreen(app.trash, volumes, onClose = { showTrash = false }, onChanged = { refreshBoth() }, say = say)
             } else {
             BoxWithConstraints(Modifier.fillMaxSize()) {
-                val narrow = maxWidth < 600.dp
                 val stacked = maxHeight > maxWidth
-                SideEffect { narrowLayout = narrow }
-                if (!narrow && drawerOpen) SideEffect { drawerOpen = false }
                 Column(Modifier.fillMaxSize()) {
-                    TopBar(
-                        narrow = narrow,
-                        onMenu = if (narrow) ({ drawerOpen = true }) else null,
-                        crumbs = crumbs,
-                        canBack = canBack,
-                        canUp = remember(path, volumes) { active.canGoUp() },
-                        settings = settings,
-                        dual = dual,
-                        onBack = { if (search != null) search = null else active.back() },
-                        onUp = { active.up() },
-                        onCrumb = { active.navigate(it) },
-                        onSort = { sort -> update { it.copy(sort = sort) } },
-                        onToggleGrid = { update { it.copy(gridView = !it.gridView) } },
-                        onToggleHidden = { update { it.copy(showHidden = !it.showHidden) } },
-                        onSetStart = { val here = path.toString(); update { it.copy(startPath = here) }; say("Archivero abrirá aquí") },
-                        onToggleDual = { browser.toggleDual() },
-                        onSearch = { search = "" },
-                        searchField = search?.let { q ->
-                            { SearchField(q, { search = it }, "Buscar en ${path.fileName ?: volume?.label ?: path}") }
-                        },
-                        onTrash = { showTrash = true },
-                        onNewFolder = { perform(Action.NEW_FOLDER) },
-                        onSelectAll = { perform(Action.SELECT_ALL) },
-                    )
-                    Row(Modifier.weight(1f)) {
-                        if (!narrow) sidebarView(!sidebarOpen, 220.dp, { sidebarOverride = !sidebarOpen }, Modifier.onFocusChanged { sidebarFocused = it.hasFocus }) { if (dual) sidebarOverride = null }
-                        val query = search
-                        if (query != null) {
-                            SearchView(
-                                root = path, query = query, showHidden = settings.showHidden,
-                                onPick = { e ->
-                                    search = null
-                                    if (e.isDirectory) active.navigate(e.path)
-                                    else e.path.parent?.let { folder ->
-                                        // Va a su carpeta y lo deja seleccionado y a la vista.
-                                        active.clearSelection()
-                                        active.navigate(folder, highlight = e.path)
-                                        active.toggleSelect(e.path)
-                                    }
-                                },
-                                modifier = Modifier.weight(1f),
-                            )
-                        } else if (dual && stacked) {
-                            Column(Modifier.weight(1f)) {
-                                PaneSlot(
-                                    browser.left, active === browser.left, true, settings.gridView,
-                                    { browser.setActive(left = true) }, openFile, Modifier.weight(1f),
-                                )
-                                Box(Modifier.fillMaxWidth().height(1.dp).background(Tone.Line))
-                                PaneSlot(
-                                    browser.right, active === browser.right, true, settings.gridView,
-                                    { browser.setActive(left = false) }, openFile, Modifier.weight(1f),
-                                )
-                            }
-                        } else {
-                            PaneSlot(
-                                browser.left, active === browser.left, dual, settings.gridView,
-                                { browser.setActive(left = true) }, openFile, Modifier.weight(1f),
-                            )
+                    if (dual && stacked) {
+                        Column(Modifier.weight(1f)) {
+                            paneSlot(browser.left, Modifier.weight(1f))
+                            Box(Modifier.fillMaxWidth().height(1.dp).background(Tone.Line))
+                            paneSlot(browser.right, Modifier.weight(1f))
+                        }
+                    } else {
+                        Row(Modifier.weight(1f)) {
+                            paneSlot(browser.left, Modifier.weight(1f))
                             if (dual) {
                                 Box(Modifier.width(1.dp).fillMaxHeight().background(Tone.Line))
-                                PaneSlot(
-                                    browser.right, active === browser.right, true, settings.gridView,
-                                    { browser.setActive(left = false) }, openFile, Modifier.weight(1f),
-                                )
+                                paneSlot(browser.right, Modifier.weight(1f))
                             }
                         }
                     }
@@ -389,15 +404,6 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
                             onClear = { if (selection.isNotEmpty()) active.clearSelection() else browser.clipboard.value = null },
                             onMore = { menuOpen = true },
                         )
-                    }
-                }
-                if (narrow) {
-                    val drawerWidth = minOf(maxWidth * 0.82f, 300.dp)
-                    Drawer(drawerOpen, onClose = { drawerOpen = false }) {
-                        LaunchedEffect(Unit) {
-                            if (drawerWantsFocus) { drawerWantsFocus = false; runCatching { sidebarFocus.requestFocus() } }
-                        }
-                        sidebarView(false, drawerWidth, null, Modifier) { drawerOpen = false }
                     }
                 }
                 Box(Modifier.align(Alignment.BottomEnd)) {
@@ -436,30 +442,6 @@ private fun Browser(app: ArchiveroApp, settings: Settings) {
             onConfirm = { ask = null; enqueue(OpRequest.Delete(a.targets)); browser.active.clearSelection() },
         )
         is Ask.Props -> PropertiesDialog(a.targets, app.fileOps) { ask = null }
-    }
-}
-
-/** Un panel con su marca de activo; tocarlo en cualquier punto lo activa. */
-@Composable
-private fun PaneSlot(
-    state: PaneState, active: Boolean, dual: Boolean, grid: Boolean,
-    onActivate: () -> Unit, onOpenFile: (FileEntry) -> Unit, modifier: Modifier,
-) {
-    val path by state.path.collectAsStateWithLifecycle()
-    val activate by rememberUpdatedState(onActivate)
-    Column(
-        modifier.fillMaxHeight().pointerInput(Unit) {
-            awaitEachGesture { awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial); activate() }
-        },
-    ) {
-        if (dual) {
-            Box(Modifier.fillMaxWidth().height(2.dp).background(if (active) Tone.Accent else Tone.Line))
-            Text(
-                path.fileName?.toString() ?: path.toString(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                color = if (active) Tone.Text else Tone.Muted, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-            )
-        }
-        PaneView(state, active, grid, onOpenFile, Modifier.weight(1f), onActivate)
     }
 }
 
