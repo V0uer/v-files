@@ -10,24 +10,24 @@ val local = Properties().apply {
     val f = rootProject.file("local.properties")
     if (f.exists()) f.inputStream().use { load(it) }
 }
-val keystorePath: String? = local.getProperty("archivero.keystore")
+val keystorePath: String? = local.getProperty("vfiles.keystore")
 
 android {
-    namespace = "local.archivero"
+    namespace = "io.github.v0uer.vfiles"
     compileSdk = 35
     defaultConfig {
-        applicationId = "local.archivero"
+        applicationId = "io.github.v0uer.vfiles"
         minSdk = 30
         targetSdk = 35
-        versionCode = 10
-        versionName = "0.5.2"
+        versionCode = 11
+        versionName = "0.6.0"
     }
     signingConfigs {
         if (keystorePath != null) create("release") {
             storeFile = file(keystorePath)
-            storePassword = local.getProperty("archivero.keystore.password")
-            keyAlias = local.getProperty("archivero.key.alias")
-            keyPassword = local.getProperty("archivero.keystore.password")
+            storePassword = local.getProperty("vfiles.keystore.password")
+            keyAlias = local.getProperty("vfiles.key.alias")
+            keyPassword = local.getProperty("vfiles.keystore.password")
         }
     }
     buildTypes {

@@ -18,10 +18,10 @@
     </queries>
 
     <application
-        android:name=".ArchiveroApp"
-        android:label="Archivero"
+        android:name=".VFilesApp"
+        android:label="V Files"
         android:icon="@mipmap/ic_launcher"
-        android:theme="@style/Theme.Archivero"
+        android:theme="@style/Theme.VFiles"
         android:supportsRtl="true">
         <activity
             android:name=".MainActivity"

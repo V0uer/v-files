@@ -29,7 +29,7 @@ Estas partes se escribieron sin poder verlas correr, así que son las más proba
   Dentro de diálogos y menús, que A acepte y B cierre.
 - **Palanca.** Un toque corto debe avanzar un solo renglón; sostenida, repetir.
 - **Tarjeta SD.** Que aparezca en "Almacenamiento" y que abrir y compartir archivos de la SD funcione.
-- **Abrir un `.apk`.** Debe saltar el instalador (la primera vez Android pide permitir la instalación desde Archivero).
+- **Abrir un `.apk`.** Debe saltar el instalador (la primera vez Android pide permitir la instalación desde V Files).
 - **Notificación de avance.** Android pide permiso de notificaciones la primera vez que se copia algo.
 
 ## Controles
