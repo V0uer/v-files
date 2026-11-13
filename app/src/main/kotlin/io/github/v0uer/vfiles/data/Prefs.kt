@@ -84,6 +84,14 @@ fun <T> moveItem(list: List<T>, from: Int, to: Int): List<T> {
     return m
 }
 
+/** Carpeta de inicio: solo se guarda si la eligió el usuario, para que el resto siga al valor por defecto. */
+object StartPath {
+    fun toStore(path: String, default: String): String? = path.takeIf { it != default }
+
+    /** Antes cualquier ajuste guardaba Descargas como si se hubiera elegido; eso se olvida una vez. */
+    fun migrate(stored: String?, oldDefault: String): String? = stored?.takeIf { it != oldDefault }
+}
+
 private val Context.store by preferencesDataStore("ajustes")
 
 class Prefs(private val context: Context) {
@@ -99,10 +107,21 @@ class Prefs(private val context: Context) {
         val splitAdjustable = booleanPreferencesKey("split_adjustable")
         val split = floatPreferencesKey("split")
         val quickAccess = booleanPreferencesKey("quick_access_v1")
+        val startV2 = booleanPreferencesKey("start_v2")
     }
 
-    val defaultStart: String =
-        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath
+    /** Se abre en la raíz del almacenamiento interno, donde está todo. */
+    val defaultStart: String = Environment.getExternalStorageDirectory().absolutePath
+
+    /** Una sola vez: si quedó guardada Descargas (el viejo valor por defecto), se vuelve a la raíz. */
+    suspend fun ensureStartPath() {
+        context.store.edit { p ->
+            if (p[K.startV2] == true) return@edit
+            val oldDefault = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath
+            StartPath.migrate(p[K.start], oldDefault).let { if (it != null) p[K.start] = it else p.remove(K.start) }
+            p[K.startV2] = true
+        }
+    }
 
     private val quickAccessDefaults by lazy {
         QuickAccess.defaults(Environment.getExternalStorageDirectory().absolutePath) { File(it).isDirectory }
@@ -145,7 +164,8 @@ class Prefs(private val context: Context) {
     suspend fun update(transform: (Settings) -> Settings) {
         context.store.edit { p ->
             val s = transform(read(p))
-            p[K.start] = s.startPath
+            StartPath.toStore(s.startPath, defaultStart).let { if (it != null) p[K.start] = it else p.remove(K.start) }
+            p[K.startV2] = true
             p[K.favorites] = PrefsCodec.encodeFavorites(s.favorites)
             p[K.hidden] = s.showHidden
             p[K.sortKey] = s.sort.key.name

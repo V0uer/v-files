@@ -3,6 +3,14 @@
 Cada versión tiene su APK en [Releases](../../releases). Hasta la 0.5.2 la app se llamaba
 **Archivero**.
 
+## 0.6.1
+
+- Con el control ya se puede navegar Acceso rápido al abrirlo con ☰ (antes solo funcionaba
+  con Select: el foco se quedaba en la lista de atrás). También si se abre con el dedo y
+  luego se usa el control.
+- La app abre en la raíz del almacenamiento interno, donde está todo, en vez de Descargas.
+  Si nunca elegiste otra carpeta de inicio, se corrige sola al actualizar.
+
 ## 0.6.0 — V Files
 
 - La app ahora se llama **V Files**.

@@ -84,6 +84,9 @@ import java.nio.file.Paths
 @Composable
 fun BrowserScreen() {
     val app = LocalContext.current.applicationContext as VFilesApp
+    // La carpeta inicial se corrige antes de crear los paneles, que la leen una sola vez.
+    val ready by produceState(false) { app.prefs.ensureStartPath(); value = true }
+    if (!ready) return
     val settings by app.prefs.settings.collectAsStateWithLifecycle(initialValue = null)
     settings?.let { Browser(app, it) }
 }
@@ -198,6 +201,8 @@ private fun Browser(app: VFilesApp, settings: Settings) {
     val closeDrawer: () -> Unit = {
         drawerPane?.let { pane -> drawerPane = null; pane.requestFocus() }
     }
+    /** Abre Acceso rápido sobre [pane] y le pasa el foco, venga del ☰ o del botón Select. */
+    val openDrawer: (PaneState) -> Unit = { pane -> drawerWantsFocus = true; drawerPane = pane }
     // Si se cierra el segundo panel, se cierra lo que tenía abierto encima.
     LaunchedEffect(dual) {
         if (!dual) {
@@ -361,8 +366,7 @@ private fun Browser(app: VFilesApp, settings: Settings) {
                         saveSplit(); true
                     }
                 PadCommand.FAVORITES -> {
-                    if (drawerPane === browser.active) closeDrawer()
-                    else { drawerWantsFocus = true; drawerPane = browser.active }
+                    if (drawerPane === browser.active) closeDrawer() else openDrawer(browser.active)
                     true
                 }
             }
@@ -394,7 +398,13 @@ private fun Browser(app: VFilesApp, settings: Settings) {
                 }
                 .onFocusChanged { if (it.hasFocus) activate() },
         ) {
-            Column(Modifier.fillMaxSize()) {
+            // Con Acceso rápido abierto, el foco que caiga en la lista de atrás (p. ej. al tocar
+            // el control después de abrirlo con el dedo) se manda a Acceso rápido.
+            Column(
+                Modifier.fillMaxSize().onFocusChanged {
+                    if (it.hasFocus && drawerPane === pane) runCatching { sidebarFocus.requestFocus() }
+                },
+            ) {
                 PaneHeader(
                     crumbs = crumbs,
                     canBack = paneBack,
@@ -402,7 +412,7 @@ private fun Browser(app: VFilesApp, settings: Settings) {
                     active = isActive,
                     showActive = dual,
                     settings = settings,
-                    onMenu = { activate(); drawerPane = if (drawerPane === pane) null else pane },
+                    onMenu = { activate(); if (drawerPane === pane) closeDrawer() else openDrawer(pane) },
                     onBack = { if (searching) searchPane = null else pane.back() },
                     onUp = { pane.up() },
                     onCrumb = { pane.navigate(it) },

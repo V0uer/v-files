@@ -36,7 +36,8 @@ La app **no pide permiso de internet**: no puede mandar nada a ningún lado.
   mitad se pega sola, como un imán. Doble toque la regresa a la mitad. Se puede apagar en ⋮.
 - Lista o cuadrícula, miniaturas de imágenes, archivos ocultos opcionales.
 - Orden por nombre, fecha, tamaño o tipo, normal o inverso.
-- Carpeta de inicio a elegir (⋮ → *Abrir aquí al iniciar*).
+- Abre en la raíz del almacenamiento interno; se puede elegir otra carpeta de inicio
+  (⋮ → *Abrir aquí al iniciar*).
 
 **Acceso rápido**
 - El ☰ abre, encima del panel, la barra con las carpetas ancladas y el almacenamiento
